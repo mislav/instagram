@@ -52,6 +52,8 @@ module Instagram
       element :type
       element :width
       element :height
+      
+      alias to_s url
     end
     
     def caption
@@ -59,6 +61,10 @@ module Instagram
       if comments.first and self.user == comments.first.user
         comments.first.text
       end
+    end
+    
+    def image_url(size = 150)
+      self.images.find { |img| img.width == size }.to_s
     end
   end
   
