@@ -24,6 +24,11 @@ module CachedInstagram
   @cache = ActiveSupport::Cache::FileStore.new(settings.cache_dir, expire_in: 5.minutes)
   
   class << self
+    def discover_user_id(url)
+      url = Addressable::URI.parse url unless url.respond_to? :host
+      $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
+    end
+    
     private
     def get_url(url)
       @cache.fetch("instagram/#{url}") { super }
@@ -78,6 +83,26 @@ get '/users/:id' do
   haml(xhr? ? :photos : :index)
 end
 
+get '/help' do
+  @title = "Help page"
+  expires 1.hour, :public
+  haml :help
+end
+
+post '/users/discover' do
+  begin
+    user_id = CachedInstagram::discover_user_id(params[:url])
+  
+    if user_id
+      redirect "/users/#{user_id}"
+    else
+      haml "%h1 Sorry\n%p The user ID couldn't be discovered on this page"
+    end
+  rescue
+    haml "%h1 Error\n%p The user ID couldn't be discovered because of an error"
+  end
+end
+
 get '/screen.css' do
   expires 6.hours, :public
   scss :style
@@ -115,6 +140,7 @@ __END__
   %p
     - if @user
       &larr; <a href="/">Home</a> &#8226;
+    <a href="/help">Help</a> &#8226;
     App made by <a href="http://twitter.com/mislav">@mislav</a>
     (<a href="/users/35241" title="Mislav's photos">photos</a>)
     using <a href="https://github.com/mislav/instagram">Instagram Ruby client</a>
@@ -160,6 +186,41 @@ __END__
 - if @user and @photos.length >= 20
   %li.pagination
     %a{ href: request.path + "?max_id=#{@photos.last.id}" } <span>Load more &rarr;</span>
+
+@@ help
+%article
+  %h1= @title
+  %nav
+    &larr; <a href="/">Home</a>
+  
+  %section
+    %h2 What's this site?
+
+    %p This site is the unofficial Instagram front-end on the Web made by querying the <strong>public resources</strong> of the <a href="https://github.com/mislav/instagram/wiki">Instagram API</a>.
+
+  %section
+    %h2 How do I discover my own Instagram photos?
+
+    %p Unfortunately, it isn't straightforward. To fetch your photos this site has to know your user ID, and Instagram doesn't have a method to lookup your ID from your username. Their API has search functionality, but it requires authentication.
+
+    %p There is a way, however. If you have a permalink to one of your photos (for instance, if you setup Instagram to tweet your photo) paste the URL here and your user ID can be detected:
+
+    %form{ action: '/users/discover', method: 'post' }
+      %p
+        %label
+          Instagr.am permalink:
+          %input{ type: 'url', name: 'url', placeholder: 'http://instagr.am/p/..../' }
+          %input{ type: 'submit', value: 'Miracle!' }
+
+  %section
+    %h2 What about geolocated photos?
+  
+    %p Some photos have location information, but it isn't visible right now. I might add this functionality.
+  
+  %section
+    %h2 Why doesn't Instagram have a real website?
+    
+    %p They mentioned that their public site is coming out soon.
 
 @@ feed
 schema_date = 2010
@@ -207,6 +268,12 @@ h1 {
   a:hover { text-decoration: underline }
 }
 p.stats { color: gray; font-style: italic; font-size: 90%; margin-top: -1.1em }
+article {
+  h1 + nav { margin-top: -1.1em; font-size: 90%; }
+  max-width: 40em;
+  label { font-weight: bold }
+  input[type=url] { font-size: 1.1em; width: 15em }
+}
 
 #photos {
   list-style: none;
@@ -255,7 +322,7 @@ p.stats { color: gray; font-style: italic; font-size: 90%; margin-top: -1.1em }
 footer {
   font-size: 80%;
   color: gray;
-  max-width: 40em;
+  max-width: 45em;
   margin: 2em auto;
   border-top: 1px solid silver;
   p { text-align: center; text-transform: uppercase; font-family: "Gill Sans", Helvetica, sans-serif; }
