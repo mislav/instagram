@@ -105,6 +105,8 @@ __END__
 
 %footer
   %p
+    - if @user
+      &larr; <a href="/">Home</a> &#8226;
     App made by <a href="http://twitter.com/mislav">@mislav</a>
     (<a href="/users/35241" title="Mislav's photos">photos</a>)
     using <a href="https://github.com/mislav/instagram">Instagram Ruby client</a>
