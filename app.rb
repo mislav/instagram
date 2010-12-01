@@ -6,8 +6,16 @@ require 'active_support/core_ext/integer/time'
 require 'active_support/core_ext/time/acts_like'
 require 'instagram'
 require 'haml'
+require 'sass'
+require 'compass'
+
+Compass.configuration do |config|
+  config.project_path = settings.root
+  config.sass_dir = 'views'
+end
 
 set :haml, format: :html5
+set :scss, Compass.sass_engine_options.merge(cache_location: File.join(ENV['TMPDIR'], 'sass-cache'))
 
 set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
@@ -54,7 +62,7 @@ get '/users/:id.atom' do
   @photos = user_photos params
   @title = "Photos by #{@photos.first.user.username} on Instagram" if @photos.any?
   
-  content_type 'application/atom+xml; charset=utf-8'
+  content_type 'application/atom+xml', charset: 'utf-8'
   expires 1.hour, :public
   builder :feed, :layout => false
 end
@@ -127,7 +135,7 @@ __END__
   
   $('#photos .pagination a').live('click', function(e) {
     e.preventDefault()
-    $(this).text('Loading...')
+    $(this).find('span').text('Loading...')
     var item = $(this).closest('.pagination')
     $.get($(this).attr('href'), function(body) {
       item.remove()
@@ -151,7 +159,7 @@ __END__
         %a{ href: "#close" } close
 - if @user and @photos.length >= 20
   %li.pagination
-    %a{ href: request.path + "?max_id=#{@photos.last.id}" } Load more &rarr;
+    %a{ href: request.path + "?max_id=#{@photos.last.id}" } <span>Load more &rarr;</span>
 
 @@ feed
 schema_date = 2010
@@ -178,6 +186,10 @@ xml.feed "xml:lang" => "en-US", "xmlns" => 'http://www.w3.org/2005/Atom' do
 end
 
 @@ style
+@import "compass/utilities";
+@import "compass/css3/text-shadow";
+@import "compass/css3/border-radius";
+
 body {
   font: medium Helvetica, sans-serif;
   margin: 2em 4em;
@@ -199,8 +211,10 @@ p.stats { color: gray; font-style: italic; font-size: 90%; margin-top: -1.1em }
 #photos {
   list-style: none;
   padding: 0; margin: 0;
+  @include clearfix;
   li {
     display: inline;
+    .thumb img { display: block; float: left; margin: 0 3px 3px 0 }
     &.active {
       .thumb { display: none }
       .full {
@@ -212,15 +226,22 @@ p.stats { color: gray; font-style: italic; font-size: 90%; margin-top: -1.1em }
       }
     }
     &.pagination {
-      text-align: center;
       a {
-        margin-left: 1em;
-        font-size: 80%; padding: .2em .6em;
-        color: white; background: #bbb; text-decoration: none;
-        text-shadow: rgba(0,0,0,.4) 1px 1px 1px;
-        position: relative; top: -10px;
+        display: block; height: 20px; padding: 65px 0; width: 150px;
+        text-align: center; float: left;
+        font-size: 80%; text-decoration: none;
+        span {
+          padding: .2em .7em .3em;
+          color: white; background: #bbb; 
+          @include text-shadow(rgba(black, .4));
+          @include border-radius(16px);
+          white-space: nowrap;
+        }
       }
-      a:hover { background: #999 }
+      a:hover {
+        background-color: #eee;
+        span { background-color: #999; }
+      }
     }
     h2 { font-size: 1.2em; margin: .5em 0; }
   }
