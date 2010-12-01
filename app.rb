@@ -21,7 +21,7 @@ set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
 module CachedInstagram
   extend Instagram
-  @cache = ActiveSupport::Cache::FileStore.new(settings.cache_dir, expire_in: 5.minutes)
+  @cache = ActiveSupport::Cache::FileStore.new(settings.cache_dir, expire_in: 3.minutes)
   
   class << self
     def discover_user_id(url)
@@ -59,7 +59,7 @@ get '/' do
   @photos = CachedInstagram::popular
   @title = "Instagram popular items"
   
-  expires 30.minutes, :public
+  expires 5.minutes, :public
   haml :index
 end
 
@@ -68,7 +68,7 @@ get '/users/:id.atom' do
   @title = "Photos by #{@photos.first.user.username} on Instagram" if @photos.any?
   
   content_type 'application/atom+xml', charset: 'utf-8'
-  expires 1.hour, :public
+  expires 15.minutes, :public
   builder :feed, :layout => false
 end
 
@@ -79,7 +79,7 @@ get '/users/:id' do
     @title = "Photos by #{@user.username} on Instagram"
   end
   
-  expires 30.minutes, :public
+  expires 5.minutes, :public
   haml(xhr? ? :photos : :index)
 end
 
