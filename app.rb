@@ -27,6 +27,10 @@ helpers do
   def img(photo, size)
     haml_tag :img, src: photo.image_url(size), width: size, height: size
   end
+  
+  def instalink(text)
+    text.sub(/\b(instagram)\b/i, '<a href="http://instagr.am">\1</a>')
+  end
 end
 
 get '/' do
@@ -66,7 +70,7 @@ __END__
   %h1
     - if @user
       %img{ src: @user.avatar, class: 'avatar' }
-    &= @title
+    = instalink @title
   - if @user
     %p.stats
       &= @user.full_name
@@ -90,8 +94,8 @@ __END__
 
 %footer
   %p
-    Made by <a href="http://twitter.com/mislav">@mislav</a>
-    (<a href="/users/35241">photos</a>)
+    App made by <a href="http://twitter.com/mislav">@mislav</a>
+    (<a href="/users/35241" title="Mislav's photos">photos</a>)
     using <a href="https://github.com/mislav/instagram">Instagram Ruby client</a>
 
 :javascript
@@ -119,7 +123,12 @@ h1, h2, h3 {
 }
 
 img { border: none }
-h1 img.avatar { width: 30px; height: 30px }
+h1 {
+  color: #333;
+  img.avatar { width: 30px; height: 30px }
+  a { color: #555; font-weight: 400; text-decoration: none }
+  a:hover { text-decoration: underline }
+}
 p.stats { color: gray; font-style: italic; font-size: 90%; margin-top: -1.1em }
 
 #photos {
