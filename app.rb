@@ -35,6 +35,11 @@ helpers do
   def xhr?
     !(request.env['HTTP_X_REQUESTED_WITH'] !~ /XMLHttpRequest/i)
   end
+  
+  def user_photos(params)
+    feed_params = params[:max_id] ? { max_id: params[:max_id].to_s } : {}
+    CachedInstagram::by_user(params[:id], feed_params)
+  end
 end
 
 get '/' do
@@ -45,14 +50,21 @@ get '/' do
   haml :index
 end
 
+get '/users/:id.atom' do
+  @photos = user_photos params
+  @title = "Photos by #{@photos.first.user.username} on Instagram" if @photos.any?
+  
+  content_type 'application/atom+xml; charset=utf-8'
+  expires 1.hour, :public
+  builder :feed, :layout => false
+end
+
 get '/users/:id' do
+  @photos = user_photos params
   unless xhr?
     @user = CachedInstagram::user_info params[:id]
     @title = "Photos by #{@user.username} on Instagram"
   end
-  
-  feed_params = params[:max_id] ? { max_id: params[:max_id].to_s } : {}
-  @photos = CachedInstagram::by_user(params[:id], feed_params)
   
   expires 30.minutes, :public
   haml(xhr? ? :photos : :index)
@@ -69,6 +81,8 @@ __END__
 %title&= @title
 %meta{ 'http-equiv' => 'content-type', content: 'text/html; charset=utf-8' }
 %link{ href: "/screen.css", rel: "stylesheet" }
+- if @user
+  %link{ href: "#{request.path}.atom", rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
 %script{ src: "/zepto.min.js" }
 
 = yield
@@ -136,6 +150,30 @@ __END__
 - if @user and @photos.length >= 20
   %li.pagination
     %a{ href: request.path + "?max_id=#{@photos.last.id}" } Load more &rarr;
+
+@@ feed
+schema_date = 2010
+
+xml.feed "xml:lang" => "en-US", "xmlns" => 'http://www.w3.org/2005/Atom' do
+  xml.id("tag:#{request.host},#{schema_date}:#{request.path.split(".")[0]}")
+  xml.link(:rel => 'alternate', :type => 'text/html', :href => request.url.split(".")[0])
+  xml.link(:rel => 'self', :type => 'application/atom+xml', :href => request.url)
+  
+  xml.title @title
+  xml.updated @photos.first.taken_at if @photos.any?
+  
+  for photo in @photos
+    xml.entry do 
+      xml.title photo.caption || 'Photo'
+      xml.id("tag:#{request.host},#{schema_date}:Instagram::Media/#{photo.id}")
+      xml.published photo.taken_at
+      # xml.link(:rel => 'alternate', :type => 'text/html', :href => options[:url])
+      xml.content :type => 'xhtml' do |content|
+        content.img :src => photo.image_url(306), :width => 306, :height => 306, :alt => photo.caption
+      end
+    end
+  end
+end
 
 @@ style
 body {
