@@ -225,22 +225,30 @@ __END__
 @@ feed
 schema_date = 2010
 
-xml.feed "xml:lang" => "en-US", "xmlns" => 'http://www.w3.org/2005/Atom' do
-  xml.id("tag:#{request.host},#{schema_date}:#{request.path.split(".")[0]}")
-  xml.link(:rel => 'alternate', :type => 'text/html', :href => request.url.split(".")[0])
-  xml.link(:rel => 'self', :type => 'application/atom+xml', :href => request.url)
+xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
+  xml.id "tag:#{request.host},#{schema_date}:#{request.path.split(".")[0]}"
+  xml.link rel: 'alternate', type: 'text/html', href: request.url.split(".")[0]
+  xml.link rel: 'self', type: 'application/atom+xml', href: request.url
   
   xml.title @title
-  xml.updated @photos.first.taken_at if @photos.any?
+  
+  if @photos.any?
+    xml.updated @photos.first.taken_at.xmlschema
+    xml.author do
+      xml.name @photos.first.user.full_name
+    end
+  end
   
   for photo in @photos
     xml.entry do 
       xml.title photo.caption || 'Photo'
-      xml.id("tag:#{request.host},#{schema_date}:Instagram::Media/#{photo.id}")
-      xml.published photo.taken_at
+      xml.id "tag:#{request.host},#{schema_date}:Instagram::Media/#{photo.id}"
+      xml.published photo.taken_at.xmlschema
       # xml.link(:rel => 'alternate', :type => 'text/html', :href => options[:url])
-      xml.content :type => 'xhtml' do |content|
-        content.img :src => photo.image_url(306), :width => 306, :height => 306, :alt => photo.caption
+      xml.content type: 'xhtml' do |content|
+        content.div xmlns: "http://www.w3.org/1999/xhtml" do
+          content.img src: photo.image_url(306), width: 306, height: 306, alt: photo.caption
+        end
       end
     end
   end
