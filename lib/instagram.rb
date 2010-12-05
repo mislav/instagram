@@ -11,26 +11,26 @@ module Instagram
   UserFeed = Addressable::Template.new 'http://instagr.am/api/v1/feed/user/{user_id}/'
   UserInfo = Addressable::Template.new 'http://instagr.am/api/v1/users/{user_id}/info/'
   
-  def popular(params = {})
-    parse_response(Popular.dup, params, Timeline)
+  def popular(params = {}, options = {})
+    parse_response(Popular.dup, params, options.fetch(:parse_with, Timeline))
   end
   
-  def by_user(user_id, params = {})
+  def by_user(user_id, params = {}, options = {})
     url = UserFeed.expand :user_id => user_id
-    parse_response(url, params, Timeline)
+    parse_response(url, params, options.fetch(:parse_with, Timeline))
   end
   
-  def user_info(user_id, params = {})
+  def user_info(user_id, params = {}, options = {})
     url = UserInfo.expand :user_id => user_id
-    parse_response(url, params, UserWrap)
+    parse_response(url, params, options.fetch(:parse_with, UserWrap))
   end
   
   private
   
-  def parse_response(url, params, parser)
+  def parse_response(url, params, parser = nil)
     url.query_values = params
     body = get_url url
-    parser.parse body
+    parser ? parser.parse(body) : body
   end
   
   def get_url(url)
