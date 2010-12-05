@@ -91,9 +91,10 @@ helpers do
     !(request.env['HTTP_X_REQUESTED_WITH'] !~ /XMLHttpRequest/i)
   end
   
-  def user_photos(params)
+  def user_photos(params, raw = false)
     feed_params = params[:max_id] ? { max_id: params[:max_id].to_s } : {}
-    CachedInstagram::by_user(params[:id], feed_params)
+    options = raw ? { parse_with: nil } : {}
+    CachedInstagram::by_user(params[:id], feed_params, options)
   end
 end
 
@@ -111,7 +112,22 @@ get '/users/:id.atom' do
   
   content_type 'application/atom+xml', charset: 'utf-8'
   expires 15.minutes, :public
-  builder :feed, :layout => false
+  builder :feed, layout: false
+end
+
+get '/users/:id.json' do
+  callback = params.delete('_callback')
+  raw_json = user_photos(params, true)
+  
+  expires 15.minutes, :public
+  
+  if callback
+    content_type 'application/javascript', charset: 'utf-8'
+    "#{callback}(#{raw_json.strip})"
+  else
+    content_type 'application/json', charset: 'utf-8'
+    raw_json
+  end
 end
 
 get '/users/:id' do
