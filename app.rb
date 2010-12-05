@@ -115,14 +115,24 @@ get '/users/:id.atom' do
 end
 
 get '/users/:id' do
-  @photos = user_photos params
-  unless xhr?
-    @user = CachedInstagram::user_info params[:id]
-    @title = "Photos by #{@user.username} on Instagram"
-  end
+  begin
+    @photos = user_photos params
+    unless xhr?
+      @user = CachedInstagram::user_info params[:id]
+      @title = "Photos by #{@user.username} on Instagram"
+    end
   
-  expires 5.minutes, :public
-  haml(xhr? ? :photos : :index)
+    expires 5.minutes, :public
+    haml(xhr? ? :photos : :index)
+  rescue Net::HTTPServerException => e
+    if 404 == e.response.code.to_i
+      status 404
+      haml "%h1 No such user\n%p Instagram couldn't resolve this user ID"
+    else
+      status 500
+      haml "%h1 Error fetching user\n%p The user ID couldn't be discovered because of an error"
+    end
+  end
 end
 
 get '/help' do
@@ -138,9 +148,11 @@ post '/users/discover' do
     if user_id
       redirect "/users/#{user_id}"
     else
+      status 500
       haml "%h1 Sorry\n%p The user ID couldn't be discovered on this page"
     end
   rescue
+    status 500
     haml "%h1 Error\n%p The user ID couldn't be discovered because of an error"
   end
 end
