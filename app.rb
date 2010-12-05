@@ -174,6 +174,10 @@ __END__
       &#8226;
       = @user.followers
       followers
+      &#8226;
+      %a{ href: "#{request.path}.atom", class: 'feed' }
+        %span photo feed
+        %img{ src: '/feed.png', alt: '' }
 
 %ol#photos
   = haml :photos
@@ -309,15 +313,27 @@ h1, h2, h3 {
   font-family: "Myriad Pro Condensed", "Gill Sans", "Lucida Grande", Helvetica, sans-serif;
   font-weight: 100;
 }
+a:link, a:visited { color: darkblue }
+a:hover, a:active { color: firebrick }
 
 img { border: none }
 h1 {
   color: #333;
   img.avatar { width: 30px; height: 30px }
-  a { color: #555; font-weight: 400; text-decoration: none }
+  a:link, a:hover, a:active, a:visited { color: #555; font-weight: 400; text-decoration: none }
   a:hover { text-decoration: underline }
 }
-p.stats { color: gray; font-style: italic; font-size: 90%; margin-top: -1.1em }
+p.stats {
+  margin-top: -1.1em;
+  font-style: italic; font-size: 90%;
+  color: gray;
+  a.feed {
+    text-decoration: none;
+    &:link, &:visited { color: inherit; }
+    span { text-decoration: underline }
+    img { vertical-align: middle }
+  }
+}
 article {
   h1 + nav { margin-top: -1.1em; font-size: 90%; }
   max-width: 40em;
@@ -376,5 +392,5 @@ footer {
   margin: 2em auto;
   border-top: 1px solid silver;
   p { text-align: center; text-transform: uppercase; font-family: "Gill Sans", Helvetica, sans-serif; }
-  a { color: #444 }
+  a:link, a:hover, a:active, a:visited { color: #444 }
 }
