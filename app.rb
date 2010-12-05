@@ -4,6 +4,7 @@ require 'active_support/cache'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/integer/time'
 require 'active_support/core_ext/time/acts_like'
+require 'digest/md5'
 require 'instagram'
 require 'haml'
 require 'sass'
@@ -112,6 +113,7 @@ get '/users/:id.atom' do
   
   content_type 'application/atom+xml', charset: 'utf-8'
   expires 15.minutes, :public
+  last_modified @photos.first.taken_at if @photos.any?
   builder :feed, layout: false
 end
 
@@ -119,13 +121,13 @@ get '/users/:id.json' do
   callback = params.delete('_callback')
   raw_json = user_photos(params, true)
   
+  content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
   expires 15.minutes, :public
+  etag Digest::MD5.hexdigest(raw_json)
   
   if callback
-    content_type 'application/javascript', charset: 'utf-8'
     "#{callback}(#{raw_json.strip})"
   else
-    content_type 'application/json', charset: 'utf-8'
     raw_json
   end
 end
@@ -139,6 +141,7 @@ get '/users/:id' do
     end
   
     expires 5.minutes, :public
+    last_modified @photos.first.taken_at if @photos.any?
     haml(xhr? ? :photos : :index)
   rescue Net::HTTPServerException => e
     if 404 == e.response.code.to_i
