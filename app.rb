@@ -21,9 +21,48 @@ set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
 module CachedInstagram
   extend Instagram
-  @cache = ActiveSupport::Cache::FileStore.new(settings.cache_dir, expire_in: 3.minutes)
+
+  class FailSafeStore < ActiveSupport::Cache::FileStore
+    # Reuses the stale cache if a known exception occurs while yielding to the block.
+    # The list of exception classes is read from the ":exceptions" array.
+    def fetch(name, options = nil)
+      options = merged_options(options)
+      key = namespaced_key(name, options)
+      entry = !options[:force] && read_entry(key, options)
+
+      if entry and not entry.expired?
+        entry.value
+      else
+        reusing_stale = false
+        
+        result = begin
+          yield
+        rescue
+          if entry and ignore_exception?($!)
+            reusing_stale = true
+            entry.value
+          else
+            # TODO: figure out if deleting entries is ever necessary
+            # delete_entry(key, options) if entry
+            raise
+          end
+        end
+        
+        write(name, result, options) unless reusing_stale
+        result
+      end
+    end
+    
+    private
+    
+    def ignore_exception?(ex)
+      options[:exceptions] && options[:exceptions].any? { |klass| ex.is_a? klass }
+    end
+  end
   
   class << self
+    attr_accessor :cache
+    
     def discover_user_id(url)
       url = Addressable::URI.parse url unless url.respond_to? :host
       $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
@@ -31,9 +70,12 @@ module CachedInstagram
     
     private
     def get_url(url)
-      @cache.fetch("instagram/#{url}") { super }
+      cache.fetch(url.to_s) { super }
     end
   end
+  
+  self.cache = FailSafeStore.new settings.cache_dir, namespace: 'instagram',
+    expires_in: 3.minutes, exceptions: [Net::HTTPServerException, JSON::ParserError]
 end
 
 helpers do
