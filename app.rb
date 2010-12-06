@@ -1,11 +1,11 @@
 # encoding: utf-8
 require 'sinatra'
-require 'active_support/cache'
+require 'instagram/cached'
+require 'active_support/notifications'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/integer/time'
 require 'active_support/core_ext/time/acts_like'
 require 'digest/md5'
-require 'instagram'
 require 'haml'
 require 'sass'
 require 'compass'
@@ -20,63 +20,30 @@ set :scss, Compass.sass_engine_options.merge(cache_location: File.join(ENV['TMPD
 
 set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
-module CachedInstagram
-  extend Instagram
-
-  class FailSafeStore < ActiveSupport::Cache::FileStore
-    # Reuses the stale cache if a known exception occurs while yielding to the block.
-    # The list of exception classes is read from the ":exceptions" array.
-    def fetch(name, options = nil)
-      options = merged_options(options)
-      key = namespaced_key(name, options)
-      entry = !options[:force] && read_entry(key, options)
-
-      if entry and not entry.expired?
-        entry.value
-      else
-        reusing_stale = false
-        
-        result = begin
-          yield
-        rescue
-          if entry and ignore_exception?($!)
-            reusing_stale = true
-            entry.value
-          else
-            # TODO: figure out if deleting entries is ever necessary
-            # delete_entry(key, options) if entry
-            raise
-          end
-        end
-        
-        write(name, result, options) unless reusing_stale
-        result
-      end
-    end
-    
-    private
-    
-    def ignore_exception?(ex)
-      options[:exceptions] && options[:exceptions].any? { |klass| ex.is_a? klass }
-    end
+module Instagram::Cached
+  def self.discover_user_id(url)
+    url = Addressable::URI.parse url unless url.respond_to? :host
+    $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
   end
   
-  class << self
-    attr_accessor :cache
-    
-    def discover_user_id(url)
-      url = Addressable::URI.parse url unless url.respond_to? :host
-      $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
-    end
-    
-    private
-    def get_url(url)
-      cache.fetch(url.to_s) { super }
+  setup settings.cache_dir, expires_in: 3.minutes
+end
+
+configure :development, :production do
+  ActiveSupport::Cache::Store.instrument = true
+
+  ActiveSupport::Notifications.subscribe(/^cache_(\w+).active_support$/) do |name, start, ending, _, payload|
+    case name.split('.').first
+    when 'cache_reuse_stale'
+      $stderr.puts "Error rebuilding cache: %s (%s)" % [payload[:key], payload[:exception].message]
+    when 'cache_generate'
+      $stderr.puts "Cache rebuild: %s (%.3f s)" % [payload[:key], ending - start]
     end
   end
-  
-  self.cache = FailSafeStore.new settings.cache_dir, namespace: 'instagram',
-    expires_in: 3.minutes, exceptions: [Net::HTTPServerException, JSON::ParserError]
+end
+
+configure :development do
+  set :logging, false
 end
 
 helpers do
@@ -95,7 +62,7 @@ helpers do
   def user_photos(params, raw = false)
     feed_params = params[:max_id] ? { max_id: params[:max_id].to_s } : {}
     options = raw ? { parse_with: nil } : {}
-    CachedInstagram::by_user(params[:id], feed_params, options)
+    Instagram::Cached::by_user(params[:id], feed_params, options)
   end
   
   def user_url(user)
@@ -115,7 +82,7 @@ helpers do
 end
 
 get '/' do
-  @photos = CachedInstagram::popular
+  @photos = Instagram::Cached::popular
   @title = "Instagram popular photos"
   
   expires 5.minutes, :public
@@ -123,7 +90,7 @@ get '/' do
 end
 
 get '/popular.atom' do
-  @photos = CachedInstagram::popular
+  @photos = Instagram::Cached::popular
   @title = "Instagram popular photos"
   
   content_type 'application/atom+xml', charset: 'utf-8'
@@ -161,7 +128,7 @@ get '/users/:id' do
   begin
     @photos = user_photos params
     unless xhr?
-      @user = CachedInstagram::user_info params[:id]
+      @user = Instagram::Cached::user_info params[:id]
       @title = "Photos by #{@user.username} on Instagram"
     end
   
@@ -187,7 +154,7 @@ end
 
 post '/users/discover' do
   begin
-    user_id = CachedInstagram::discover_user_id(params[:url])
+    user_id = Instagram::Cached::discover_user_id(params[:url])
   
     if user_id
       redirect "/users/#{user_id}"
