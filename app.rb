@@ -97,14 +97,39 @@ helpers do
     options = raw ? { parse_with: nil } : {}
     CachedInstagram::by_user(params[:id], feed_params, options)
   end
+  
+  def user_url(user)
+    absolute_url "/users/#{user.id}"
+  end
+  
+  def absolute_url(path)
+    abs_uri = "#{request.scheme}://#{request.host}"
+
+    if request.scheme == 'https' && request.port != 443 ||
+          request.scheme == 'http' && request.port != 80
+      abs_uri << ":#{request.port}"
+    end
+
+    abs_uri << path
+  end
 end
 
 get '/' do
   @photos = CachedInstagram::popular
-  @title = "Instagram popular items"
+  @title = "Instagram popular photos"
   
   expires 5.minutes, :public
   haml :index
+end
+
+get '/popular.atom' do
+  @photos = CachedInstagram::popular
+  @title = "Instagram popular photos"
+  
+  content_type 'application/atom+xml', charset: 'utf-8'
+  expires 15.minutes, :public
+  last_modified @photos.first.taken_at if @photos.any?
+  builder :feed, layout: false
 end
 
 get '/users/:id.atom' do
@@ -189,6 +214,8 @@ __END__
 %link{ href: "/screen.css", rel: "stylesheet" }
 - if @user
   %link{ href: "#{request.path}.atom", rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
+- elsif request.path == '/'
+  %link{ href: "/popular.atom", rel: 'alternate', title: @title, type: 'application/atom+xml' }
 %script{ src: "/zepto.min.js" }
 
 = yield
@@ -199,6 +226,9 @@ __END__
     - if @user
       %img{ src: @user.avatar, class: 'avatar' }
     = instalink @title
+    - if request.path == '/'
+      %a{ href: "/popular.atom", class: 'feed' }
+        %img{ src: '/feed.png', alt: 'feed' }
   - if @user
     %p.stats
       &= @user.full_name
@@ -301,19 +331,18 @@ __END__
 
 @@ feed
 schema_date = 2010
+popular = request.path.include? 'popular'
 
 xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
   xml.id "tag:#{request.host},#{schema_date}:#{request.path.split(".")[0]}"
-  xml.link rel: 'alternate', type: 'text/html', href: request.url.split(".")[0]
+  xml.link rel: 'alternate', type: 'text/html', href: request.url.split(popular ? 'popular' : '.')[0]
   xml.link rel: 'self', type: 'application/atom+xml', href: request.url
   
   xml.title @title
   
   if @photos.any?
     xml.updated @photos.first.taken_at.xmlschema
-    xml.author do
-      xml.name @photos.first.user.full_name
-    end
+    xml.author { xml.name @photos.first.user.full_name } unless popular
   end
   
   for photo in @photos
@@ -321,10 +350,16 @@ xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
       xml.title photo.caption || 'Photo'
       xml.id "tag:#{request.host},#{schema_date}:Instagram::Media/#{photo.id}"
       xml.published photo.taken_at.xmlschema
-      # xml.link(:rel => 'alternate', :type => 'text/html', :href => options[:url])
+      
+      if popular
+        xml.link rel: 'alternate', type: 'text/html', href: user_url(photo.user)
+        xml.author { xml.name photo.user.full_name }
+      end
+      
       xml.content type: 'xhtml' do |content|
         content.div xmlns: "http://www.w3.org/1999/xhtml" do
           content.img src: photo.image_url(306), width: 306, height: 306, alt: photo.caption
+          content.p "#{photo.likers.size} likes" if popular and not photo.likers.empty?
         end
       end
     end
