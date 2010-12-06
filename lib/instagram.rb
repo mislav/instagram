@@ -34,7 +34,9 @@ module Instagram
   end
   
   def get_url(url)
-    response = Net::HTTP.get_response url
+    response = Net::HTTP.start(url.host, url.port) { |http|
+      http.get url.request_uri
+    }
     
     if Net::HTTPSuccess === response
       response.body
