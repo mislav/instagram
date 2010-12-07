@@ -79,6 +79,10 @@ helpers do
 
     abs_uri << path
   end
+  
+  def root_path?
+    request.path == '/'
+  end
 end
 
 get '/' do
@@ -181,7 +185,7 @@ __END__
 %link{ href: "/screen.css", rel: "stylesheet" }
 - if @user
   %link{ href: "#{request.path}.atom", rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
-- elsif request.path == '/'
+- elsif root_path?
   %link{ href: "/popular.atom", rel: 'alternate', title: @title, type: 'application/atom+xml' }
 %script{ src: "/zepto.min.js" }
 
@@ -193,7 +197,7 @@ __END__
     - if @user
       %img{ src: @user.avatar, class: 'avatar' }
     = instalink @title
-    - if request.path == '/'
+    - if root_path?
       %a{ href: "/popular.atom", class: 'feed' }
         %img{ src: '/feed.png', alt: 'feed' }
   - if @user
@@ -257,7 +261,7 @@ __END__
         %a{ href: "/users/#{photo.user.id}" }&= photo.user.full_name
       .close
         %a{ href: "#close" } close
-- if @user and @photos.length >= 20
+- if @photos.length >= 20 and not root_path?
   %li.pagination
     %a{ href: request.path + "?max_id=#{@photos.last.id}" } <span>Load more &rarr;</span>
 
