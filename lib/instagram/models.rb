@@ -66,6 +66,24 @@ module Instagram
     def image_url(size = 150)
       self.images.find { |img| img.width == size }.to_s
     end
+    
+    FILTERS = {
+      1  => 'X-Pro II',
+      2  => 'Lomo-fi',
+      3  => 'Earlybird',
+      17 => 'Lily',
+      5  => 'Poprocket',
+      10 => 'Inkwell',
+      4  => 'Apollo',
+      15 => 'Nashville',
+      13 => 'Gotham',
+      14 => '1977',
+      16 => 'Lord Kelvin'
+    }
+    
+    def filter_name
+      FILTERS[filter_type.to_i]
+    end
   end
   
   class Timeline < NibblerJSON
