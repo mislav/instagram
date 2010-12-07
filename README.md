@@ -1,8 +1,10 @@
-# Instagram Ruby library
+# [Instagram][] Ruby library
 
-So far, the only way to browse [Instagram][] photos was their iPhone app. Well, no more.
+This library acts as a client for the [unofficial Instagram API][wiki]. It was used to create [the missing Instagram web interface][web].
 
-This library acts as a client for the [unofficial Instagram API][wiki]. You can:
+    $ gem install instagram
+
+With it, you can:
 
 * fetch popular photos;
 * get user info;
@@ -39,8 +41,9 @@ Caveat: you need to know user IDs; usernames can't be used. However, you can sta
 
 ## Credits
 
-Instagram API reverse-engineered and Ruby library written by Mislav Marohnić.
+Instagram API documentation and Ruby library written by Mislav Marohnić.
 
 
 [instagram]: http://instagr.am/
+[web]: http://instagram.heroku.com
 [wiki]: https://github.com/mislav/instagram/wiki "Instagram API"
