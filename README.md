@@ -21,12 +21,15 @@ Caveat: you need to know user IDs; usernames can't be used. However, you can sta
     
     photo.caption     #=> "Extreme dog closeup"
     photo.likes.size  #=> 54
+    photo.filter_name #=> "X-Pro II"
     
     photo.user.username      #=> "johndoe"
     photo.user.full_name     #=> "John Doe"
     photo.comments[1].text   #=> "That's so cute"
     photo.images.last.width  #=> 612
     
+    photo.image_url(612)
+    # => "http://distillery.s3.amazonaws.com/media/-.jpg"
     
     # fetch extended info for John
     john_info = Instagram::user_info(photo.user.id)
