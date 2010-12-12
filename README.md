@@ -34,8 +34,8 @@ Caveat: you need to know user IDs; usernames can't be used. However, you can sta
     # fetch extended info for John
     john_info = Instagram::user_info(photo.user.id)
     
-    john_info.media_count   #=> 32
-    john_info.followers     #=> 160
+    john_info.media_count    #=> 32
+    john_info.follower_count #=> 160
     
     
     # find more photos by John

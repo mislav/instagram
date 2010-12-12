@@ -10,12 +10,15 @@ module Instagram
   class User < Base
     element :username
     element :full_name
-    element 'profile_pic_url' => :avatar
+    element 'profile_pic_url' => :avatar_url
+    alias avatar avatar_url # `avatar` is deprecated
     
     # extended info
     element :media_count
-    element 'following_count' => :following
-    element 'follower_count' => :followers
+    element :following_count
+    alias following following_count # `following` will return an array of users in future!
+    element :follower_count
+    alias followers follower_count # `followers` will return an array of users in future!
     
     def ==(other)
       User === other and other.id == self.id
