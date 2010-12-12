@@ -28,8 +28,9 @@ Caveat: you need to know user IDs; usernames can't be used. However, you can sta
     photo.comments[1].text   #=> "That's so cute"
     photo.images.last.width  #=> 612
     
+    # available sizes: 150px / 306px / 612px square
     photo.image_url(612)
-    # => "http://distillery.s3.amazonaws.com/media/-.jpg"
+    # => "http://distillery.s3.amazonaws.com/media/-.jpg" (612×612px image)
     
     # fetch extended info for John
     john_info = Instagram::user_info(photo.user.id)
@@ -41,6 +42,7 @@ Caveat: you need to know user IDs; usernames can't be used. However, you can sta
     # find more photos by John
     photos_by_john = Instagram::by_user(photo.user.id)
 
+To see which models and properties are available, see [models.rb][models].
 
 ## Credits
 
@@ -50,3 +52,4 @@ Instagram API documentation and Ruby library written by Mislav Marohnić.
 [instagram]: http://instagr.am/
 [web]: http://instagram.heroku.com
 [wiki]: https://github.com/mislav/instagram/wiki "Instagram API"
+[models]: https://github.com/mislav/instagram/blob/master/lib/instagram/models.rb

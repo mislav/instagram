@@ -4,6 +4,7 @@ require 'nibbler/json'
 module Instagram
   
   class Base < NibblerJSON
+    # `pk` is such a dumb property name
     element 'pk' => :id
   end
   
@@ -32,26 +33,39 @@ module Instagram
   end
   
   class Media < Base
+    # short string used for permalink
     element :code
+    # type is always 1 (other values possibly reserved for video in the future?)
     element :media_type
+    # filter code; use `filter_name` to get human name of the filter used
     element :filter_type
+    # I don't know what "device timestamp" is and how it relates to `taken_at`?
     element :device_timestamp
+    # timestamp of when the picture was taken
     element :taken_at, :with => lambda { |sec| Time.at(sec) }
+    # user who uploaded the media
     element :user, :with => User
     
+    # array of people who liked this media
     elements :likers, :with => User
     
     elements :comments, :with => NibblerJSON do
       element :created_at, :with => lambda { |sec| Time.at(sec) }
+      # content type is always "comment"
       element :content_type
+      # `type` is always 1 (other values possibly reserved for comments in form of media?)
       element :type
+      # the `pk` of parent media
       element :media_id
+      # comment body
       element :text
+      # comment author
       element :user, :with => User
     end
     
     elements 'image_versions' => :images, :with => NibblerJSON do
       element :url
+      # `type` is 5 for 150px, 6 for 306px and 7 for 612px
       element :type
       element :width
       element :height
@@ -59,13 +73,15 @@ module Instagram
       alias to_s url
     end
     
+    # author's caption for the image; can be nil
     def caption
-      # a bit of guesswork
+      # caption is implemented as a first comment made by the owner
       if comments.first and self.user == comments.first.user
         comments.first.text
       end
     end
     
+    # typical sizes: 150px / 306px / 612px square
     def image_url(size = 150)
       self.images.find { |img| img.width == size }.to_s
     end
