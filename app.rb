@@ -187,7 +187,10 @@ __END__
   %link{ href: "#{request.path}.atom", rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
 - elsif root_path?
   %link{ href: "/popular.atom", rel: 'alternate', title: @title, type: 'application/atom+xml' }
-%script{ src: "/zepto.min.js" }
+- if production?
+  %script{ src: 'https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js' }
+- else
+  %script{ src: '/jquery.js' }
 
 = yield
 
@@ -243,8 +246,7 @@ __END__
     var item = $(this).closest('.pagination')
     $.get($(this).attr('href'), function(body) {
       item.remove()
-      try { $('#photos').append(body) }
-      catch(e) { $('#photos').get(0).innerHTML += body } // for mozilla
+      $('#photos')
     })
   })
 
