@@ -73,6 +73,27 @@ module Instagram
       alias to_s url
     end
     
+    # image location
+    element :lat
+    element :lng
+    
+    def geolocated?
+      self.lat and self.lng
+    end
+    
+    element :location, :with => Base do
+      # ID on a 3rd-party service
+      element :external_id
+      # name of 3rd-party service, like "foursquare"
+      element :external_source
+      # name of location
+      element :name
+      # address in the external service's database
+      element :address
+      element :lat
+      element :lng
+    end
+    
     # author's caption for the image; can be nil
     def caption
       # caption is implemented as a first comment made by the owner
