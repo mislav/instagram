@@ -52,7 +52,8 @@ helpers do
   end
   
   def instalink(text)
-    text.sub(/\b(instagram)\b/i, '<a href="http://instagr.am">\1</a>')
+    text.sub(/\b(on instagram)\b/i, '<span>\1</span>').
+      sub(/\b(instagram)\b/i, '<a href="http://instagr.am">\1</a>')
   end
   
   def xhr?
@@ -182,15 +183,15 @@ __END__
 !!!
 %title&= @title
 %meta{ 'http-equiv' => 'content-type', content: 'text/html; charset=utf-8' }
+%meta{ name: 'viewport', content: 'initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' }
+%link{ rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
+/ %meta{ name: 'apple-mobile-web-app-capable', content: 'yes' }
+/ %meta{ name: 'apple-mobile-web-app-status-bar-style', content: 'black' }
 %link{ href: "/screen.css", rel: "stylesheet" }
 - if @user
   %link{ href: "#{request.path}.atom", rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
 - elsif root_path?
   %link{ href: "/popular.atom", rel: 'alternate', title: @title, type: 'application/atom+xml' }
-- if production?
-  %script{ src: 'https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js' }
-- else
-  %script{ src: '/jquery.js' }
 
 = yield
 
@@ -202,7 +203,7 @@ __END__
     = instalink @title
     - if root_path?
       %a{ href: "/popular.atom", class: 'feed' }
-        %img{ src: '/feed.png', alt: 'feed' }
+        %img{ src: '/feed.png', alt: 'feed', width: 14, height: 14 }
   - if @user
     %p.stats
       &= @user.full_name
@@ -212,7 +213,7 @@ __END__
       &#8226;
       %a{ href: "#{request.path}.atom", class: 'feed' }
         %span photo feed
-        %img{ src: '/feed.png', alt: '' }
+        %img{ src: '/feed.png', alt: '', width: 14, height: 14 }
 
 %ol#photos
   = haml :photos
@@ -227,42 +228,30 @@ __END__
     using <a href="https://github.com/mislav/instagram">Instagram Ruby client</a>
 
 :javascript
-  $('#photos a.thumb').live('click', function(e) {
-    e.preventDefault()
-    $('#photos').addClass('lightbox')
-    var item = $(this).closest('li').addClass('active')
-    item.find('.full img').attr('src', $(this).attr('href'))
-  })
-  
-  $('#photos a[href="#close"], #photos .full img').live('click', function(e) {
-    e.preventDefault()
-    $(this).closest('li').removeClass('active')
-    $('#photos').removeClass('lightbox')
-  })
-  
-  $('#photos .pagination a').live('click', function(e) {
-    e.preventDefault()
-    $(this).find('span').text('Loading...')
-    var item = $(this).closest('.pagination')
-    $.get($(this).attr('href'), function(body) {
-      item.remove()
-      $('#photos')
-    })
-  })
+  var src, script
+  if (navigator.userAgent.match(/WebKit\b/)) src = '/zepto.min.js'
+  else src = 'https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js'
+  script = document.createElement('script')
+  script.src = src
+  script.async = 'async'
+  document.body.appendChild(script)
+
+%script{ src: '/app.js' }
 
 @@ photos
 - for photo in @photos
-  %li
+  %li{ id: "media_#{photo.id}" }
     %a{ href: photo.image_url(612), class: 'thumb' }
       - img(photo, 150)
     .full{ style: 'display:none' }
       %img{ width: 480, height: 480 }
-      %h2= photo.caption
-      .author
-        by
-        %a{ href: "/users/#{photo.user.id}" }&= photo.user.full_name
-      .close
-        %a{ href: "#close" } close
+      .caption
+        %h2= photo.caption
+        .author
+          by
+          %a{ href: "/users/#{photo.user.id}" }&= photo.user.full_name
+        .close
+          %a{ href: "#close" } close
 - if @photos.length >= 20 and not root_path?
   %li.pagination
     %a{ href: request.path + "?max_id=#{@photos.last.id}" } <span>Load more &rarr;</span>
@@ -338,98 +327,3 @@ xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
     end
   end
 end
-
-@@ style
-@import "compass/utilities";
-@import "compass/css3/text-shadow";
-@import "compass/css3/border-radius";
-
-body {
-  font: medium Helvetica, sans-serif;
-  margin: 2em 4em;
-}
-h1, h2, h3 {
-  font-family: "Myriad Pro Condensed", "Gill Sans", "Lucida Grande", Helvetica, sans-serif;
-  font-weight: 100;
-}
-a:link, a:visited { color: darkblue }
-a:hover, a:active { color: firebrick }
-
-img { border: none }
-h1 {
-  color: #333;
-  img.avatar { width: 30px; height: 30px }
-  a:link, a:hover, a:active, a:visited { color: #555; font-weight: 400; text-decoration: none }
-  a:hover { text-decoration: underline }
-}
-p.stats {
-  margin-top: -1.1em;
-  font-style: italic; font-size: 90%;
-  color: gray;
-  a.feed {
-    text-decoration: none;
-    &:link, &:visited { color: inherit; }
-    span { text-decoration: underline }
-    img { vertical-align: middle }
-  }
-}
-article {
-  h1 + nav { margin-top: -1.1em; font-size: 90%; }
-  max-width: 40em;
-  label { font-weight: bold }
-  input[type=url] { font-size: 1.1em; width: 15em }
-}
-
-#photos {
-  list-style: none;
-  padding: 0; margin: 0;
-  @include clearfix;
-  li {
-    display: inline;
-    .thumb img { display: block; float: left; margin: 0 3px 3px 0 }
-    &.active {
-      .thumb { display: none }
-      .full {
-        display: block !important;
-        padding: 15px;
-        color: #F7F4E9;
-        a { color: white }
-        .close { margin-top: -1.15em; text-align: right; width: 480px }
-      }
-    }
-    &.pagination {
-      a {
-        display: block; height: 20px; padding: 65px 0; width: 150px;
-        text-align: center; float: left;
-        font-size: 80%; text-decoration: none;
-        span {
-          padding: .2em .7em .3em;
-          color: white; background: #bbb; 
-          @include text-shadow(rgba(black, .4));
-          @include border-radius(16px);
-          white-space: nowrap;
-        }
-      }
-      a:hover {
-        background-color: #eee;
-        span { background-color: #999; }
-      }
-    }
-    h2 { font-size: 1.2em; margin: .5em 0; }
-  }
-  &.lightbox {
-    background: #3F3831;
-    li { display: none }
-    li.active { display: block }
-  }
-}
-
-footer {
-  font-size: 80%;
-  color: gray;
-  max-width: 45em;
-  margin: 2em auto;
-  border-top: 1px solid silver;
-  p { text-align: center; text-transform: uppercase; font-family: "Gill Sans", Helvetica, sans-serif; }
-  a:link, a:hover, a:active, a:visited { color: #444 }
-}
