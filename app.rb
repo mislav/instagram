@@ -26,7 +26,7 @@ module Instagram::Cached
     $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
   end
   
-  setup settings.cache_dir, expires_in: 3.minutes
+  setup settings.cache_dir, expires_in: settings.production? ? 3.minutes : 1.hour
 end
 
 configure :development, :production do
@@ -89,7 +89,7 @@ get '/' do
   @photos = Instagram::Cached::popular
   @title = "Instagram popular photos"
   
-  expires 5.minutes, :public
+  expires 15.minutes, :public
   haml :index
 end
 
@@ -98,7 +98,7 @@ get '/popular.atom' do
   @title = "Instagram popular photos"
   
   content_type 'application/atom+xml', charset: 'utf-8'
-  expires 15.minutes, :public
+  expires 1.hour, :public
   last_modified @photos.first.taken_at if @photos.any?
   builder :feed, layout: false
 end
@@ -108,7 +108,7 @@ get '/users/:id.atom' do
   @title = "Photos by #{@photos.first.user.username} on Instagram" if @photos.any?
   
   content_type 'application/atom+xml', charset: 'utf-8'
-  expires 15.minutes, :public
+  expires 1.hour, :public
   last_modified @photos.first.taken_at if @photos.any?
   builder :feed, layout: false
 end
@@ -118,7 +118,7 @@ get '/users/:id.json' do
   raw_json = user_photos(params, true)
   
   content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
-  expires 15.minutes, :public
+  expires 1.hour, :public
   etag Digest::MD5.hexdigest(raw_json)
   
   if callback
@@ -136,7 +136,7 @@ get '/users/:id' do
       @title = "Photos by #{@user.username} on Instagram"
     end
   
-    expires 5.minutes, :public
+    expires 30.minutes, :public
     last_modified @photos.first.taken_at if @photos.any?
     haml(xhr? ? :photos : :index)
   rescue Net::HTTPServerException => e
@@ -152,7 +152,7 @@ end
 
 get '/help' do
   @title = "Help page"
-  expires 1.hour, :public
+  expires 1.month, :public
   haml :help
 end
 
@@ -173,7 +173,7 @@ post '/users/discover' do
 end
 
 get '/screen.css' do
-  expires 6.hours, :public
+  expires 1.month, :public
   scss :style
 end
 
