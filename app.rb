@@ -16,7 +16,10 @@ Compass.configuration do |config|
 end
 
 set :haml, format: :html5
-set :scss, Compass.sass_engine_options.merge(cache_location: File.join(ENV['TMPDIR'], 'sass-cache'))
+set :scss do
+  Compass.sass_engine_options.merge style: settings.production? ? :compressed : :nested,
+    cache_location: File.join(ENV['TMPDIR'], 'sass-cache')
+end
 
 set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
