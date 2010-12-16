@@ -188,6 +188,7 @@ __END__
 %meta{ 'http-equiv' => 'content-type', content: 'text/html; charset=utf-8' }
 %meta{ name: 'viewport', content: 'initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' }
 %link{ rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
+%link{ rel: 'favicon', href: '/favicon.ico' }
 / %meta{ name: 'apple-mobile-web-app-capable', content: 'yes' }
 / %meta{ name: 'apple-mobile-web-app-status-bar-style', content: 'black' }
 %link{ href: "/screen.css", rel: "stylesheet" }
