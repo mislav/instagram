@@ -113,6 +113,8 @@ module Instagram
       3  => 'Earlybird',
       17 => 'Lily',
       5  => 'Poprocket',
+      18 => 'Sutro',
+      19 => 'Toaster',
       10 => 'Inkwell',
       4  => 'Apollo',
       15 => 'Nashville',
