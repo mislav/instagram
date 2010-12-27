@@ -35,7 +35,7 @@ module Instagram
   
   def get_url(url)
     response = Net::HTTP.start(url.host, url.port) { |http|
-      http.get url.request_uri
+      http.get url.request_uri, 'User-agent' => 'Instagram Ruby client'
     }
     
     if Net::HTTPSuccess === response
