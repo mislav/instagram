@@ -47,7 +47,7 @@ module Instagram
     element :user, :with => User
     
     # array of people who liked this media
-    elements :likers, :with => User
+    element :liker_ids
     
     elements :comments, :with => NibblerJSON do
       element :created_at, :with => lambda { |sec| Time.at(sec) }
