@@ -108,19 +108,21 @@ module Instagram
     end
     
     FILTERS = {
-      1  => 'X-Pro II',
-      2  => 'Lomo-fi',
-      3  => 'Earlybird',
-      17 => 'Lily',
-      5  => 'Poprocket',
-      18 => 'Sutro',
-      19 => 'Toaster',
+      1 => 'X-Pro II',
+      2 => 'Lomo-fi',
+      3 => 'Earlybird',
+      4 => 'Apollo',
+      5 => 'Poprocket',
       10 => 'Inkwell',
-      4  => 'Apollo',
-      15 => 'Nashville',
       13 => 'Gotham',
       14 => '1977',
-      16 => 'Lord Kelvin'
+      15 => 'Nashville',
+      16 => 'Lord Kelvin',
+      17 => 'Lily',
+      18 => 'Sutro',
+      19 => 'Toaster',
+      20 => 'Walden',
+      21 => 'Hefe'
     }
     
     def filter_name
