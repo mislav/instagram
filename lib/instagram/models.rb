@@ -132,6 +132,11 @@ module Instagram
     end
   end
   
+  class TagSearch < NibblerJSON
+    elements :results
+    def parse() super.results end
+  end
+  
   class Timeline < NibblerJSON
     elements :items, :with => Media
     # return items instead of self when done
