@@ -59,10 +59,6 @@ helpers do
       sub(/\b(instagram)\b/i, '<a href="http://instagr.am">\1</a>')
   end
   
-  def xhr?
-    !(request.env['HTTP_X_REQUESTED_WITH'] !~ /XMLHttpRequest/i)
-  end
-  
   def user_photos(params, raw = false)
     feed_params = params[:max_id] ? { max_id: params[:max_id].to_s } : {}
     options = raw ? { parse_with: nil } : {}
@@ -135,14 +131,14 @@ end
 get '/users/:id' do
   begin
     @photos = user_photos params
-    unless xhr?
+    unless request.xhr?
       @user = Instagram::Cached::user_info params[:id]
       @title = "Photos by #{@user.username} on Instagram"
     end
   
     expires 30.minutes, :public
     last_modified @photos.first.taken_at if @photos.any?
-    haml(xhr? ? :photos : :index)
+    haml(request.xhr? ? :photos : :index)
   rescue Net::HTTPServerException => e
     if 404 == e.response.code.to_i
       status 404
