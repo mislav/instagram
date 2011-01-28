@@ -5,10 +5,12 @@ require 'active_support/notifications'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/integer/time'
 require 'active_support/core_ext/time/acts_like'
+require 'addressable/uri'
 require 'digest/md5'
 require 'haml'
 require 'sass'
 require 'compass'
+require 'search'
 
 Compass.configuration do |config|
   config.project_path = settings.root
@@ -35,6 +37,10 @@ end
 configure :development, :production do
   ActiveSupport::Cache::Store.instrument = true
 
+  ActiveSupport::Notifications.subscribe('search.indextank') do |name, start, ending, _, payload|
+    $stderr.puts 'IndexTank search for "%s" (%.3f s)' % [payload[:query], ending - start]
+  end
+  
   ActiveSupport::Notifications.subscribe(/^cache_(\w+).active_support$/) do |name, start, ending, _, payload|
     case name.split('.').first
     when 'cache_reuse_stale'
@@ -82,6 +88,20 @@ helpers do
   
   def root_path?
     request.path == '/'
+  end
+  
+  def user_path?
+    request.path.index('/users/') == 0
+  end
+  
+  def search_path?
+    request.path.index('/search') == 0
+  end
+  
+  def search_page(page)
+    Addressable::URI.parse(request.path).tap do |url|
+      url.query_values = params.merge('page' => page.to_s)
+    end
   end
 end
 
@@ -150,6 +170,17 @@ get '/users/:id' do
   end
 end
 
+get '/search' do
+  @query = params[:q]
+  @title = "“#{@query}” on Instagram"
+
+  @filter_name = Instagram::Media::FILTERS[params[:filter].to_i]
+  @photos = IndexedPhoto.paginate(@query, :page => params[:page], :filter => @filter_name)
+
+  expires 10.minutes, :public
+  haml(request.xhr? ? :photos : :index)
+end
+
 get '/help' do
   @title = "Help page"
   expires 1.month, :public
@@ -216,7 +247,17 @@ __END__
     - if root_path?
       %a{ href: "/popular.atom", class: 'feed' }
         %img{ src: '/feed.png', alt: 'feed', width: 14, height: 14 }
-  - if @user
+
+  - if root_path? or search_path?
+    %form{ action: '/search', method: 'get' }
+      %p
+        %input{ type: 'search', name: 'q', placeholder: 'search photos', value: @query }
+        %select{ name: 'filter' }
+          %option{ value: '' } no filter
+          - Instagram::Media::FILTERS.each do |code, name|
+            %option{ value: code, selected: @filter_name == name }&= name
+        %input{ type: 'submit', value: 'Search' }
+  - elsif @user
     %p.stats
       &= @user.full_name
       &#8226;
@@ -226,13 +267,22 @@ __END__
       %a{ href: "#{request.path}.atom", class: 'feed' }
         %span photo feed
         %img{ src: '/feed.png', alt: '', width: 14, height: 14 }
+  - if search_path?
+    %p.stats
+      == Found <b>#{@photos.total_entries}</b> items
+      - if @filter_name
+        == using the “#{@filter_name}” filter
 
 %ol#photos
   = haml :photos
 
+- if search_path?
+  %p.footnote
+    <strong>Note:</strong> search is limited &mdash; not all photos appear in the results.
+
 %footer
   %p
-    - if @user
+    - unless root_path?
       &larr; <a href="/">Home</a> &#8226;
     <a href="/help">Help</a> &#8226;
     App made by <a href="http://twitter.com/mislav">@mislav</a>
@@ -261,12 +311,16 @@ __END__
         %h2= photo.caption
         .author
           by
-          %a{ href: "/users/#{photo.user.id}" }&= photo.user.full_name
+          - if photo.user.id
+            %a{ href: "/users/#{photo.user.id}" }&= photo.user.full_name
+          - else
+            &= photo.user.full_name || photo.user.username
         .close
           %a{ href: "#close" } close
-- if @photos.length >= 20 and not root_path?
+- if @photos.respond_to?(:next_page) ? @photos.next_page : (@photos.length >= 20 and not root_path?)
+  - href = search_path? ? search_page(@photos.next_page) : request.path + "?max_id=#{@photos.last.id}"
   %li.pagination
-    %a{ href: request.path + "?max_id=#{@photos.last.id}" } <span>Load more &rarr;</span>
+    %a{ href: href } <span>Load more &rarr;</span>
 
 @@ feed
 schema_date = 2010

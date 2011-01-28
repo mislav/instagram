@@ -6,8 +6,18 @@ GEM
     builder (3.0.0)
     compass (0.10.6)
       haml (>= 3.0.4)
+    faraday (0.5.4)
+      addressable (~> 2.2.2)
+      multipart-post (~> 1.1.0)
+      rack (>= 1.1.0, < 2)
     haml (3.0.24)
     i18n (0.5.0)
+    indextank (0.0.6)
+      faraday
+      json_pure (= 1.4.6)
+      yajl-ruby (= 0.7.7)
+    json_pure (1.4.6)
+    multipart-post (1.1.0)
     nibbler (1.2.1)
     rack (1.2.1)
     shotgun (0.8)
@@ -16,7 +26,8 @@ GEM
       rack (~> 1.1)
       tilt (~> 1.1)
     tilt (1.1)
-    yajl-ruby (0.7.8)
+    will_paginate (3.0.pre2)
+    yajl-ruby (0.7.7)
 
 PLATFORMS
   ruby
@@ -28,7 +39,9 @@ DEPENDENCIES
   compass
   haml
   i18n
+  indextank
   nibbler
   shotgun
   sinatra
+  will_paginate (~> 3.0.pre2)
   yajl-ruby

@@ -42,7 +42,7 @@ ready('$', function($) {
   else preload('/spinner.svg')
 
   function hashchange() {
-    if (/#p(\d+)/.test(location.hash)) viewPhoto(RegExp.$1)
+    if (/#p([\w-]+)/.test(location.hash)) viewPhoto(RegExp.$1)
     else closePhoto()
   }
 
