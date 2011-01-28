@@ -132,8 +132,25 @@ module Instagram
     end
   end
   
-  class TagSearch < NibblerJSON
-    elements :results
+  class Tag < String
+    attr_reader :media_count
+    
+    def initialize(str, count)
+      super(str)
+      @media_count = count
+    end
+    
+    def self.parse(hash)
+      new hash['name'], hash['media_count']
+    end
+    
+    def inspect
+      "#{super} (#{media_count})"
+    end
+  end
+  
+  class SearchTagsResults < NibblerJSON
+    elements :results, :with => Tag
     def parse() super.results end
   end
   
