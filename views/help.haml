@@ -1,0 +1,33 @@
+%article
+  %h1= @title
+  %nav
+    &larr; <a href="/">Home</a>
+  
+  %section
+    %h2 What's this site?
+
+    %p This site is the unofficial Instagram front-end on the Web made by querying the <strong>public resources</strong> of the <a href="https://github.com/mislav/instagram/wiki">Instagram API</a>.
+
+  %section
+    %h2 How do I discover my own Instagram photos?
+
+    %p Unfortunately, it isn't straightforward. To fetch your photos this site has to know your user ID, and Instagram doesn't have a method to lookup your ID from your username. Their API has search functionality, but it requires authentication.
+
+    %p There is a way, however. If you have a permalink to one of your photos (for instance, if you setup Instagram to tweet your photo) paste the URL here and your user ID can be detected:
+
+    %form{ action: '/users/discover', method: 'post' }
+      %p
+        %label
+          Instagr.am permalink:
+          %input{ type: 'url', name: 'url', placeholder: 'http://instagr.am/p/..../' }
+          %input{ type: 'submit', value: 'Miracle!' }
+
+  %section
+    %h2 What about geolocated photos?
+  
+    %p Some photos have location information, but it isn't visible right now. I might add this functionality.
+  
+  %section
+    %h2 Why doesn't Instagram have a real website?
+    
+    %p They mentioned that their public site is coming out soon.
