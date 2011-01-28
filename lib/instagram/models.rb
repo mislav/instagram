@@ -47,6 +47,8 @@ module Instagram
     element :user, :with => User
     
     # array of people who liked this media
+    elements :likers, :with => User
+    # user IDs of people who liked this (only if "likers" are not present)
     element :liker_ids
     
     elements :comments, :with => NibblerJSON do
