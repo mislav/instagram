@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |gem|
   gem.name    = 'instagram'
-  gem.version = '0.3.1'
+  gem.version = '0.3.2'
   gem.date    = Time.now.strftime('%Y-%m-%d')
 
   gem.add_dependency 'addressable'
