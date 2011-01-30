@@ -1,4 +1,5 @@
 @import "compass";
+@import "curled";
 
 body {
   font: medium Helvetica, sans-serif;
@@ -65,8 +66,17 @@ p.footnote {
 article {
   h1 + nav { margin-top: -1.1em; font-size: 90%; }
   max-width: 40em;
+}
+
+form.detect {
+  padding: .1em 1em;
+  background: #f8f8f8;
   label { font-weight: bold }
+  input[name=twitter] { font-size: 1.1em; width: 8em }
   input[type=url] { font-size: 1.1em; width: 15em }
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.27), 0 0 40px rgba(0, 0, 0, 0.06) inset;
+  -webkit-box-shadow: 0 1px 4px rgba(0, 0, 0, 0.27), 0 0 60px rgba(0, 0, 0, 0.06) inset;
+  -moz-box-shadow: 0 1px 4px rgba(0, 0, 0, 0.27), 0 0 40px rgba(0, 0, 0, 0.06) inset;
 }
 
 ol.tags {

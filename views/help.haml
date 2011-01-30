@@ -13,16 +13,23 @@
   %section
     %h2 How do I discover my own Instagram photos?
 
-    %p Unfortunately, it isn't straightforward. To fetch your photos this site has to know your user ID, and Instagram doesn't have a method to lookup your ID from your username. Their API has search functionality, but it requires authentication.
+    %p <strong>If you recently tweeted</strong> a link to your Instagram photo, enter your Twitter username and the app will search for that link and try to lookup your Instagram user.
 
-    %p There is a way, however. If you have a permalink to one of your photos (for instance, if you setup Instagram to tweet your photo) paste the URL here and your user ID can be detected:
+    %form{ action: '/users/discover', method: 'post', class: 'detect' }
+      %p
+        %label
+          Twitter username:
+          %input{ type: 'text', name: 'twitter' }
+          %input{ type: 'submit', value: 'Search' }
 
-    %form{ action: '/users/discover', method: 'post' }
+    %p Alternatively, you can paste <strong>a permalink</strong> to one of your Instagram photos:
+    
+    %form{ action: '/users/discover', method: 'post', class: 'detect' }
       %p
         %label
           Instagr.am permalink:
           %input{ type: 'url', name: 'url', placeholder: 'http://instagr.am/p/..../' }
-          %input{ type: 'submit', value: 'Miracle!' }
+          %input{ type: 'submit', value: 'Lookup' }
 
   %section
     %h2 Why don't some photos appear in search results?

@@ -1,6 +1,7 @@
 # encoding: utf-8
 require 'sinatra'
 require 'instagram/cached'
+require 'active_support/core_ext/object/blank'
 require 'active_support/notifications'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/integer/time'
@@ -34,6 +35,26 @@ module Instagram::Cached
   def self.discover_user_id(url)
     url = Addressable::URI.parse url unless url.respond_to? :host
     $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
+  end
+  
+  PermalinkRe = %r{http://instagr\.am/p/[/\w-]+}
+  TwitterSearch = Addressable::URI.parse 'http://search.twitter.com/search.json'
+  TwitterTimeline = Addressable::URI.parse 'http://api.twitter.com/1/statuses/user_timeline.json'
+  
+  def self.search_twitter(username)
+    detect = Proc.new { |tweet| return [$&, tweet['id']] if tweet['text'] =~ PermalinkRe }
+    
+    url = TwitterSearch.dup
+    url.query_values = { q: "from:#{username} instagr.am" }
+    data = JSON.parse get_url(url)
+    data['results'].each(&detect)
+    
+    url = TwitterTimeline.dup
+    url.query_values = { screen_name: username, count: "200", trim_user: '1' }
+    data = JSON.parse get_url(url)
+    data.each(&detect)
+    
+    return nil
   end
   
   setup settings.cache_dir, expires_in: settings.production? ? 3.minutes : 1.hour
@@ -217,9 +238,22 @@ end
 
 post '/users/discover' do
   begin
-    user = User.find_by_instagram_url(params[:url])
-  
+    url = params[:url].presence
+    twitter = params[:twitter].presence
+    twitter_id = nil
+    
+    if twitter and not url
+      url, twitter_id = Instagram::Cached.search_twitter(params[:twitter])
+    end
+    
+    user = User.find_by_instagram_url(url)
+    
     if user
+      if twitter_id
+        user.twitter = twitter
+        user.twitter_id = twitter_id
+        user.save
+      end
       redirect user_url(user.username)
     else
       status 500
