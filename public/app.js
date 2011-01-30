@@ -41,11 +41,6 @@ ready('$', function($) {
   }
   else preload('/spinner.svg')
 
-  function hashchange() {
-    if (/#p([\w-]+)/.test(location.hash)) viewPhoto(RegExp.$1)
-    else closePhoto()
-  }
-
   function viewPhoto(item) {
     if (typeof item == "string") item = $('#media_' + item)
     if (!item.get(0) || item.hasClass('active')) return
@@ -55,7 +50,7 @@ ready('$', function($) {
       thumb.removeClass('loading')
       var container = $('#photos').addClass('lightbox')
       item.addClass('active').find('.full img').attr('src', img.src)
-      location.hash = '#p' + item.attr('id').split('_')[1]
+      pushPhotoState(item.attr('id').split('_')[1])
       if ($.os && $.os.iphone) scrollTo(0, container.offset().top - 8);
     }
     
@@ -71,7 +66,33 @@ ready('$', function($) {
     $('#photos').removeClass('lightbox')
   }
 
-  $(window).bind('hashchange', hashchange)
+  function pushPhotoState(photoID) {
+    if (photoID) {
+      var hash = '#p' + photoID
+      if (location.hash != hash) {
+        if (history.pushState) history.pushState({ photo: photoID }, "", hash)
+        else location.hash = hash
+      }
+    } else {
+      var url = location.href.split('#')[0]
+      if (history.pushState) history.pushState({ photo: null, closed: true }, "", url)
+      else location.href = url
+    }
+  }
+
+  function hashchange() {
+    if (/#p([\w-]+)/.test(location.hash)) viewPhoto(RegExp.$1)
+    else closePhoto()
+  }
+
+  if (history.pushState) {
+    $(window).bind('popstate', function(e) {
+      if (e.state && e.state.photo) viewPhoto(e.state.photo)
+      else closePhoto()
+    })
+  } else {
+    $(window).bind('hashchange', hashchange)
+  }
   hashchange()
 
   $('#photos a.thumb').live('click', function(e) {
@@ -82,8 +103,9 @@ ready('$', function($) {
 
   $('#photos a[href="#close"], #photos .full img').live('click', function(e) {
     e.preventDefault()
-    if (window.history.length > 1) window.history.back()
-    else location.href = location.href.split('#')[0]
+    var url = location.href.split('#')[0]
+    pushPhotoState(null)
+    closePhoto()
   })
 
   $('#photos .pagination a').live('click', function(e) {
