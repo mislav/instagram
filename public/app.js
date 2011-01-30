@@ -95,26 +95,38 @@ ready('$', function($) {
   }
 
   function pushPhotoState(photoID) {
+    var url = location.href.split('#')[0]
     if (photoID) {
       var hash = '#p' + photoID
       if (location.hash != hash) {
         if (history.pushState) history.pushState({ photo: photoID }, "", hash)
         else location.hash = hash
+        trackPageview(url + hash)
       }
     } else {
-      var url = location.href.split('#')[0]
-      if (history.pushState) history.pushState({ photo: null, closed: true }, "", url)
+      if (history.pushState) {
+        history.pushState({ photo: null, closed: true }, "", url)
+        trackPageview(url)
+      }
       else location.href = url
     }
   }
 
-  function hashchange() {
+  function trackPageview(url) {
+    if (url.indexOf('://') >= 0) url = url.split(/:\/\/[^\/]+/)[1]
+    if (url.indexOf('?') < 0) url = url.replace('#p', '/p')
+    if (window._gaq) _gaq.push(['_trackPageview', url])
+    else if (window.console) console.log('trackPageview: ' + url)
+  }
+
+  function hashchange(e) {
     if (/#p([\w-]+)/.test(location.hash)) viewPhoto(RegExp.$1)
     else closePhoto()
   }
 
   if (history.pushState) {
     $(window).bind('popstate', function(e) {
+      trackPageview(location.href)
       if (e.state && e.state.photo) viewPhoto(e.state.photo)
       else closePhoto()
     })

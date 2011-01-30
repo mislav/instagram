@@ -248,6 +248,7 @@ __END__
   :javascript
     var _gaq = _gaq || [];
     _gaq.push(['_setAccount', 'UA-87067-8']);
+    _gaq.push(['_setDetectFlash', false]);
     _gaq.push(['_trackPageview']);
 
     (function() {
