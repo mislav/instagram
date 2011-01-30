@@ -41,6 +41,34 @@ ready('$', function($) {
   }
   else preload('/spinner.svg')
 
+  var input = document.createElement('input')
+  input.setAttribute('type', 'search')
+  if (input.type == 'text') $(document.body).addClass('no-inputsearch')
+
+  if (!('placeholder' in input)) {
+    function emulatePlaceholder(field) {
+      var val = field.val(), text = field.attr('placeholder')
+      if (!val || val === text) field.val(text).addClass('placeholder')
+    }
+    
+    $('input[placeholder], textarea[placeholder]')
+      .bind('focusin', function(e) {
+        var input = $(this)
+        if (input.val() === input.attr('placeholder')) input.val('').removeClass('placeholder')
+      })
+      .bind('focusout', function(e) {
+        emulatePlaceholder($(this))
+      })
+      .each(function() {
+        emulatePlaceholder($(this))
+      })
+  }
+
+  $('form').live('submit', function() {
+    var select = $(this).find('select[name=filter]')
+    if (select.get(0) && !select.get(0).selectedIndex) select.attr('disabled', 'disabled')
+  })
+
   function viewPhoto(item) {
     if (typeof item == "string") item = $('#media_' + item)
     if (!item.get(0) || item.hasClass('active')) return

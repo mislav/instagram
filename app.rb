@@ -271,7 +271,7 @@ __END__
       %p
         %input{ type: 'search', name: 'q', placeholder: 'search photos', value: @query }
         %select{ name: 'filter' }
-          %option{ value: '' } no filter
+          %option{ value: '' } any filter
           - Instagram::Media::FILTERS.each do |code, name|
             %option{ value: code, selected: @filter_name == name }&= name
         %input{ type: 'submit', value: 'Search' }

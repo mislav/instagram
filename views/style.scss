@@ -14,6 +14,15 @@ a:hover, a:active { color: firebrick }
 img { border: none }
 header, footer { display: block; }
 
+input.placeholder { color: gray; }
+.no-inputsearch input[type=search] {
+  border: 1px solid silver;
+  padding: 3px 1em 2px 1em;
+  @include border-radius(10px);
+  width: 10em;
+  @include box-shadow(rgba(0,0,0,.2), 0px, 1px, 2px, 0, inset);
+}
+
 h1 {
   color: #333;
   img.avatar { width: 30px; height: 30px }
