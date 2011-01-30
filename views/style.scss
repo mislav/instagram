@@ -69,6 +69,23 @@ article {
   input[type=url] { font-size: 1.1em; width: 15em }
 }
 
+ol.tags {
+  clear: both;
+  font: 100 90% "Gill Sans", Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: .5em 0 1em 0;
+  list-style-type: none;
+  li {
+    margin: 0px;
+    padding: 0px;
+    display: inline;
+    span { font-size: 90%; }
+  }
+  a { text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  &:before { content: "Tags: "; color: gray; }
+}
+
 $spinner-size: 40px;
 
 #photos {

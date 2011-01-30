@@ -190,9 +190,20 @@ end
 get '/search' do
   @query = params[:q]
   @title = "“#{@query}” on Instagram"
+  @tags = Instagram::Cached::search_tags(@query)
 
   @filter_name = Instagram::Media::FILTERS[params[:filter].to_i]
   @photos = IndexedPhoto.paginate(@query, :page => params[:page], :filter => @filter_name)
+
+  expires 10.minutes, :public
+  haml(request.xhr? ? :photos : :index)
+end
+
+get '/tags/:tag' do
+  @tag = params[:tag]
+  @title = "Photos tagged ##{@tag} on Instagram"
+  @photos = Instagram::Cached::by_tag(@tag, :max_id => params[:max_id])
+  @per_page = 32
 
   expires 10.minutes, :public
   haml(request.xhr? ? :photos : :index)
@@ -286,6 +297,14 @@ __END__
       %a{ href: atom_path(@user), class: 'feed' }
         %span photo feed
         %img{ src: '/feed.png', alt: '', width: 14, height: 14 }
+
+  - if @tags and @tags.any?
+    %ol.tags
+      - for tag in @tags.sort_by(&:media_count).reverse[0, 6]
+        %li
+          %a{ href: "/tags/#{tag}" }== ##{tag}
+          %span== (#{tag.media_count})
+
   - if search_path?
     %p.stats
       == Found <b>#{@photos.total_entries}</b> items
@@ -336,7 +355,7 @@ __END__
             &= photo.user.full_name || photo.user.username
         .close
           %a{ href: "#close" } close
-- if @photos.respond_to?(:next_page) ? @photos.next_page : (@photos.length >= 20 and not root_path?)
+- if @photos.respond_to?(:next_page) ? @photos.next_page : (@photos.length >= (@per_page || 20) and not root_path?)
   - href = search_path? ? search_page(@photos.next_page) : request.path + "?max_id=#{@photos.last.id}"
   %li.pagination
     %a{ href: href } <span>Load more &rarr;</span>
