@@ -1,10 +1,51 @@
+require 'mingo'
+require 'active_support/memoizable'
 require 'indextank'
 require 'will_paginate/finders/base'
 
-set(:search_index) {
-  search_client = IndexTank::Client.new(ENV['INDEXTANK_API_URL'])
-  search_client.indexes('idx')
-}
+class User < Mingo
+  property :user_id
+  property :username
+  property :twitter
+  property :twitter_id
+  
+  extend ActiveSupport::Memoizable
+  
+  class NotFound < RuntimeError; end
+  
+  def self.lookup(id)
+    if id =~ /\D/
+      first(username: id) or raise NotFound
+    else
+      self[id]
+    end
+  end
+  
+  def self.[](id)
+    (first(user_id: id.to_i) || new(user_id: id.to_i)).tap do |user|
+      unless user.username
+        user.username = user.instagram_info.username
+        user.save
+      end
+    end
+  end
+  
+  def self.find_by_instagram_url(url)
+    id = Instagram::Cached.discover_user_id(url)
+    self[id] if id
+  end
+  
+  def instagram_info
+    Instagram::Cached::user_info self.user_id
+  end
+  memoize :instagram_info
+  
+  def photos(max_id = nil, raw = false)
+    feed_params = max_id ? { max_id: max_id.to_s } : {}
+    options = raw ? { parse_with: nil } : {}
+    Instagram::Cached::by_user(self.user_id, feed_params, options)
+  end
+end
 
 # mimics Instagram::Media
 class IndexedPhoto < Struct.new(:id, :caption, :thumbnail_url, :large_url, :username, :taken_at, :filter_name)

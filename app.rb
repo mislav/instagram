@@ -10,7 +10,7 @@ require 'digest/md5'
 require 'haml'
 require 'sass'
 require 'compass'
-require 'search'
+require 'models'
 
 Compass.configuration do |config|
   config.project_path = settings.root
@@ -22,6 +22,11 @@ set :scss do
   Compass.sass_engine_options.merge style: settings.production? ? :compressed : :nested,
     cache_location: File.join(ENV['TMPDIR'], 'sass-cache')
 end
+
+set(:search_index) {
+  search_client = IndexTank::Client.new(ENV['INDEXTANK_API_URL'])
+  search_client.indexes('idx')
+}
 
 set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
@@ -35,6 +40,9 @@ module Instagram::Cached
 end
 
 configure :development, :production do
+  Mingo.connect ENV['MONGOHQ_URL'] || 'instagram'
+  User.collection.create_index(:username, :unique => true)
+
   ActiveSupport::Cache::Store.instrument = true
 
   ActiveSupport::Notifications.subscribe('search.indextank') do |name, start, ending, _, payload|
@@ -65,14 +73,16 @@ helpers do
       sub(/\b(instagram)\b/i, '<a href="http://instagr.am">\1</a>')
   end
   
-  def user_photos(params, raw = false)
-    feed_params = params[:max_id] ? { max_id: params[:max_id].to_s } : {}
-    options = raw ? { parse_with: nil } : {}
-    Instagram::Cached::by_user(params[:id], feed_params, options)
+  def photo_url(photo)
+    absolute_url "/users/#{photo.user.username}#p#{photo.id}"
   end
   
-  def user_url(user)
-    absolute_url "/users/#{user.id}"
+  def user_url(user_id)
+    absolute_url "/users/#{user_id}"
+  end
+  
+  def atom_path(user)
+    "/users/#{user.user_id}.atom"
   end
   
   def absolute_url(path)
@@ -124,8 +134,9 @@ get '/popular.atom' do
 end
 
 get '/users/:id.atom' do
-  @photos = user_photos params
-  @title = "Photos by #{@photos.first.user.username} on Instagram" if @photos.any?
+  @user = User[params[:id]]
+  @photos = @user.photos params[:max_id]
+  @title = "Photos by #{@user.username} on Instagram"
   
   content_type 'application/atom+xml', charset: 'utf-8'
   expires 1.hour, :public
@@ -134,8 +145,9 @@ get '/users/:id.atom' do
 end
 
 get '/users/:id.json' do
-  callback = params.delete('_callback')
-  raw_json = user_photos(params, true)
+  user = User[params[:id]]
+  callback = params['_callback']
+  raw_json = user.photos(params[:max_id], true)
   
   content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
   expires 1.hour, :public
@@ -150,23 +162,28 @@ end
 
 get '/users/:id' do
   begin
-    @photos = user_photos params
-    unless request.xhr?
-      @user = Instagram::Cached::user_info params[:id]
-      @title = "Photos by #{@user.username} on Instagram"
-    end
-  
-    expires 30.minutes, :public
-    last_modified @photos.first.taken_at if @photos.any?
-    haml(request.xhr? ? :photos : :index)
+    @user = User.lookup params[:id]
+    # redirect from numeric ID to username
+    redirect user_url(@user.username) unless params[:id] =~ /\D/
+    @photos = @user.photos params[:max_id]
   rescue Net::HTTPServerException => e
     if 404 == e.response.code.to_i
       status 404
       haml "%h1 No such user\n%p Instagram couldn't resolve this user ID"
     else
       status 500
-      haml "%h1 Error fetching user\n%p The user ID couldn't be discovered because of an error"
+      haml "%h1 Error fetching data from Instagram"
     end
+  rescue User::NotFound
+    status 404
+    haml "%h1 Unrecognized username\n%p We don't know user “#{params[:id]}”.\n" +
+      "%p If this is your Instagram username, please go through the <a href='/help'>user discovery process</a>"
+  else
+    @title = "Photos by #{@user.username} on Instagram"
+
+    expires 30.minutes, :public
+    last_modified @photos.first.taken_at if @photos.any?
+    haml(request.xhr? ? :photos : :index)
   end
 end
 
@@ -189,13 +206,14 @@ end
 
 post '/users/discover' do
   begin
-    user_id = Instagram::Cached::discover_user_id(params[:url])
+    user = User.find_by_instagram_url(params[:url])
   
-    if user_id
-      redirect "/users/#{user_id}"
+    if user
+      redirect user_url(user.username)
     else
       status 500
-      haml "%h1 Sorry\n%p The user ID couldn't be discovered on this page"
+      haml "%h1 Sorry\n%p The user ID couldn't be discovered on this page.\n" +
+        "%p <strong>Note:</strong> you <em>must</em> have a profile picture on Instagram."
     end
   rescue
     status 500
@@ -220,7 +238,7 @@ __END__
 / %meta{ name: 'apple-mobile-web-app-status-bar-style', content: 'black' }
 %link{ href: "/screen.css", rel: "stylesheet" }
 - if @user
-  %link{ href: "#{request.path}.atom", rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
+  %link{ href: atom_path(@user), rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
 - elsif root_path?
   %link{ href: "/popular.atom", rel: 'alternate', title: @title, type: 'application/atom+xml' }
 
@@ -242,7 +260,7 @@ __END__
 %header
   %h1
     - if @user
-      %img{ src: @user.avatar, class: 'avatar' }
+      %img{ src: @user.instagram_info.avatar, class: 'avatar' }
     = instalink @title
     - if root_path?
       %a{ href: "/popular.atom", class: 'feed' }
@@ -259,12 +277,12 @@ __END__
         %input{ type: 'submit', value: 'Search' }
   - elsif @user
     %p.stats
-      &= @user.full_name
+      &= @user.instagram_info.full_name
       &#8226;
-      = @user.followers
+      = @user.instagram_info.followers
       followers
       &#8226;
-      %a{ href: "#{request.path}.atom", class: 'feed' }
+      %a{ href: atom_path(@user), class: 'feed' }
         %span photo feed
         %img{ src: '/feed.png', alt: '', width: 14, height: 14 }
   - if search_path?
@@ -286,7 +304,7 @@ __END__
       &larr; <a href="/">Home</a> &#8226;
     <a href="/help">Help</a> &#8226;
     App made by <a href="http://twitter.com/mislav">@mislav</a>
-    (<a href="/users/35241" title="Mislav's photos">photos</a>)
+    (<a href="/users/mislav" title="Mislav's photos">photos</a>)
     using <a href="https://github.com/mislav/instagram">Instagram Ruby client</a>
 
 :javascript
@@ -345,8 +363,10 @@ xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
       xml.published photo.taken_at.xmlschema
       
       if popular
-        xml.link rel: 'alternate', type: 'text/html', href: user_url(photo.user)
+        xml.link rel: 'alternate', type: 'text/html', href: user_url(photo.user.id)
         xml.author { xml.name photo.user.full_name }
+      else
+        xml.link rel: 'alternate', type: 'text/html', href: photo_url(photo)
       end
       
       xml.content type: 'xhtml' do |content|
