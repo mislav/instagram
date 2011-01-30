@@ -21,7 +21,9 @@ h1 {
 }
 header {
   @include clearfix;
+  margin-bottom: 1em;
   h1 {
+    margin-bottom: 0;
     float: left;
     + form {
       padding-top: 2em;
@@ -36,7 +38,7 @@ header {
 }
 p.stats {
   clear: both;
-  margin-top: -1.1em;
+  margin: 0; padding-top: .4em;
   font-style: italic; font-size: 90%;
   color: gray;
   a.feed {
