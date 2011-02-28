@@ -1,8 +1,6 @@
-# [Instagram][] Ruby library
+# Unofficial [Instagram][] Ruby library
 
-This library acts as a client for the [unofficial Instagram API][wiki]. It was used to create [the missing Instagram web interface][web].
-
-    $ gem install instagram
+This library acts as a client for the [unofficial Instagram API][wiki]. It was used to create [the missing Instagram web interface][web] before [their main API][official] went public.
 
 With it, you can:
 
@@ -44,12 +42,9 @@ Caveat: you need to know user IDs; usernames can't be used. However, you can sta
 
 To see which models and properties are available, see [models.rb][models].
 
-## Credits
-
-Instagram API documentation and Ruby library written by Mislav Marohnić.
-
 
 [instagram]: http://instagr.am/
 [web]: http://instagram.heroku.com
 [wiki]: https://github.com/mislav/instagram/wiki "Instagram API"
 [models]: https://github.com/mislav/instagram/blob/master/lib/instagram/models.rb
+[official]: http://instagram.com/developer/
