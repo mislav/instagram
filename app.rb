@@ -1,6 +1,6 @@
 # encoding: utf-8
 require 'sinatra'
-require 'instagram/cached'
+require 'instagram'
 require 'active_support/core_ext/object/blank'
 require 'active_support/notifications'
 require 'active_support/core_ext/numeric/time'
@@ -12,10 +12,21 @@ require 'haml'
 require 'sass'
 require 'compass'
 require 'models'
+require 'choices'
+
+Choices.load_settings(File.join(settings.root, 'config.yml'), settings.environment.to_s).each do |key, value|
+  set key.to_sym, value
+end
 
 Compass.configuration do |config|
   config.project_path = settings.root
   config.sass_dir = 'views'
+end
+
+Instagram.configure do |config|
+  for key, value in settings.instagram
+    config.send("#{key}=", value)
+  end
 end
 
 set :haml, format: :html5
@@ -25,49 +36,29 @@ set :scss do
 end
 
 set(:search_index) {
-  search_client = IndexTank::Client.new(ENV['INDEXTANK_API_URL'])
+  search_client = IndexTank::Client.new(settings.indextank.api_url)
   search_client.indexes('idx')
 }
 
 set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
-module Instagram::Cached
-  def self.discover_user_id(url)
-    url = Addressable::URI.parse url unless url.respond_to? :host
-    $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
-  end
-  
-  PermalinkRe = %r{http://instagr\.am/p/[/\w-]+}
-  TwitterSearch = Addressable::URI.parse 'http://search.twitter.com/search.json'
-  TwitterTimeline = Addressable::URI.parse 'http://api.twitter.com/1/statuses/user_timeline.json'
-  
-  def self.search_twitter(username)
-    detect = Proc.new { |tweet| return [$&, tweet['id']] if tweet['text'] =~ PermalinkRe }
-    
-    url = TwitterSearch.dup
-    url.query_values = { q: "from:#{username} instagr.am" }
-    data = JSON.parse get_url(url)
-    data['results'].each(&detect)
-    
-    url = TwitterTimeline.dup
-    url.query_values = { screen_name: username, count: "200", trim_user: '1' }
-    data = JSON.parse get_url(url)
-    data.each(&detect)
-    
-    return nil
-  end
-  
-  setup settings.cache_dir, expires_in: settings.production? ? 3.minutes : 1.hour
-end
-
 configure :development, :production do
-  Mingo.connect ENV['MONGOHQ_URL'] || 'instagram'
+  Mingo.connect settings.mongodb.url
   User.collection.create_index(:username, :unique => true)
 
   ActiveSupport::Cache::Store.instrument = true
 
   ActiveSupport::Notifications.subscribe('search.indextank') do |name, start, ending, _, payload|
     $stderr.puts 'IndexTank search for "%s" (%.3f s)' % [payload[:query], ending - start]
+  end
+
+  ActiveSupport::Notifications.subscribe('request.faraday') do |name, start, ending, _, payload|
+    url = payload[:url]
+    if url.query_values.key? 'access_token'
+      url = url.dup
+      url.query_values = url.query_values.update('access_token' => 'TOKEN')
+    end
+    $stderr.puts '[%s] %s %s (%.3f s)' % [url.host, payload[:method].to_s.upcase, url.request_uri, ending - start]
   end
   
   ActiveSupport::Notifications.subscribe(/^cache_(\w+).active_support$/) do |name, start, ending, _, payload|
@@ -76,6 +67,8 @@ configure :development, :production do
       $stderr.puts "Error rebuilding cache: %s (%s)" % [payload[:key], payload[:exception].message]
     when 'cache_generate'
       $stderr.puts "Cache rebuild: %s (%.3f s)" % [payload[:key], ending - start]
+    when 'cache_read'
+      $stderr.puts "Cache hit: %s" % payload[:key] if payload[:hit]
     end
   end
 end
@@ -84,11 +77,25 @@ configure :development do
   set :logging, false
 end
 
+FILTERS = {
+  1 => 'X-Pro II',
+  2 => 'Lomo-fi',
+  3 => 'Earlybird',
+  4 => 'Apollo',
+  5 => 'Poprocket',
+  10 => 'Inkwell',
+  13 => 'Gotham',
+  14 => '1977',
+  15 => 'Nashville',
+  16 => 'Lord Kelvin',
+  17 => 'Lily',
+  18 => 'Sutro',
+  19 => 'Toaster',
+  20 => 'Walden',
+  21 => 'Hefe'
+}
+
 helpers do
-  def img(photo, size)
-    haml_tag :img, src: photo.image_url(size), width: size, height: size
-  end
-  
   def instalink(text)
     text.sub(/\b(on instagram)\b/i, '<span>\1</span>').
       sub(/\b(instagram)\b/i, '<a href="http://instagr.am">\1</a>')
@@ -134,10 +141,16 @@ helpers do
       url.query_values = params.merge('page' => page.to_s)
     end
   end
+  
+  def last_modified_from_photos(photos)
+    if photos.any?
+      last_modified Time.at(photos.first.created_time.to_i)
+    end
+  end
 end
 
 get '/' do
-  @photos = Instagram::Cached::popular
+  @photos = Instagram::media_popular
   @title = "Instagram popular photos"
   
   expires 15.minutes, :public
@@ -145,12 +158,11 @@ get '/' do
 end
 
 get '/popular.atom' do
-  @photos = Instagram::Cached::popular
+  @photos = Instagram::media_popular
   @title = "Instagram popular photos"
   
   content_type 'application/atom+xml', charset: 'utf-8'
   expires 1.hour, :public
-  last_modified @photos.first.taken_at if @photos.any?
   builder :feed, layout: false
 end
 
@@ -161,7 +173,7 @@ get '/users/:id.atom' do
   
   content_type 'application/atom+xml', charset: 'utf-8'
   expires 1.hour, :public
-  last_modified @photos.first.taken_at if @photos.any?
+  last_modified_from_photos(@photos)
   builder :feed, layout: false
 end
 
@@ -187,6 +199,7 @@ get '/users/:id' do
     # redirect from numeric ID to username
     redirect user_url(@user.username) unless params[:id] =~ /\D/
     @photos = @user.photos params[:max_id]
+    @per_page = 20
   rescue Net::HTTPServerException => e
     if 404 == e.response.code.to_i
       status 404
@@ -203,7 +216,7 @@ get '/users/:id' do
     @title = "Photos by #{@user.username} on Instagram"
 
     expires 30.minutes, :public
-    last_modified @photos.first.taken_at if @photos.any?
+    last_modified_from_photos(@photos)
     haml(request.xhr? ? :photos : :index)
   end
 end
@@ -211,9 +224,9 @@ end
 get '/search' do
   @query = params[:q]
   @title = "“#{@query}” on Instagram"
-  @tags = Instagram::Cached::search_tags(@query)
+  @tags = Instagram::tag_search(@query)
 
-  @filter_name = Instagram::Media::FILTERS[params[:filter].to_i]
+  @filter_name = FILTERS[params[:filter].to_i]
   @photos = IndexedPhoto.paginate(@query, :page => params[:page], :filter => @filter_name)
 
   expires 10.minutes, :public
@@ -223,8 +236,8 @@ end
 get '/tags/:tag' do
   @tag = params[:tag]
   @title = "Photos tagged ##{@tag} on Instagram"
-  @photos = Instagram::Cached::by_tag(@tag, :max_id => params[:max_id])
-  @per_page = 32
+  @photos = Instagram::tag_recent_media(@tag, max_id: params[:max_id], count: 20)
+  @per_page = 20
 
   expires 10.minutes, :public
   haml(request.xhr? ? :photos : :index)
@@ -243,7 +256,7 @@ post '/users/discover' do
     twitter_id = nil
     
     if twitter and not url
-      url, twitter_id = Instagram::Cached.search_twitter(params[:twitter])
+      url, twitter_id = Instagram::Discovery.search_twitter(params[:twitter])
     end
     
     user = User.find_by_instagram_url(url)
@@ -261,6 +274,7 @@ post '/users/discover' do
         "%p <strong>Note:</strong> you <em>must</em> have a profile picture on Instagram."
     end
   rescue
+    raise unless settings.production?
     status 500
     haml "%h1 Error\n%p The user ID couldn't be discovered because of an error"
   end
@@ -306,7 +320,7 @@ __END__
 %header
   %h1
     - if @user
-      %img{ src: @user.instagram_info.avatar, class: 'avatar' }
+      %img{ src: @user.instagram_info.profile_picture, class: 'avatar' }
     = instalink @title
     - if root_path?
       %a{ href: "/popular.atom", class: 'feed' }
@@ -318,14 +332,14 @@ __END__
         %input{ type: 'search', name: 'q', placeholder: 'search photos', value: @query }
         %select{ name: 'filter' }
           %option{ value: '' } any filter
-          - Instagram::Media::FILTERS.each do |code, name|
+          - FILTERS.each do |code, name|
             %option{ value: code, selected: @filter_name == name }&= name
         %input{ type: 'submit', value: 'Search' }
   - elsif @user
     %p.stats
       &= @user.instagram_info.full_name
       &#8226;
-      = @user.instagram_info.followers
+      = @user.instagram_info.counts.followed_by
       followers
       &#8226;
       %a{ href: atom_path(@user), class: 'feed' }
@@ -336,7 +350,7 @@ __END__
     %ol.tags
       - for tag in @tags.sort_by(&:media_count).reverse[0, 6]
         %li
-          %a{ href: "/tags/#{tag}" }== ##{tag}
+          %a{ href: "/tags/#{tag.name}" }== ##{tag.name}
           %span== (#{tag.media_count})
 
   - if search_path?
@@ -359,7 +373,6 @@ __END__
     <a href="/help">Help</a> &#8226;
     App made by <a href="http://twitter.com/mislav">@mislav</a>
     (<a href="/users/mislav" title="Mislav's photos">photos</a>)
-    using <a href="https://github.com/mislav/instagram">Instagram Ruby client</a>
 
 :javascript
   var src, script
@@ -375,20 +388,23 @@ __END__
 @@ photos
 - for photo in @photos
   %li{ id: "media_#{photo.id}" }
-    %a{ href: photo.image_url(612), class: 'thumb' }
-      - img(photo, 150)
+    %a{ href: photo.images.standard_resolution.url, class: 'thumb' }
+      %img{ src: photo.images.thumbnail.url, width: 150, height: 150 }
     .full{ style: 'display:none' }
       %img{ width: 480, height: 480 }
       .caption
-        %h2= photo.caption
+        - if photo.caption
+          %h2= photo.caption.text
         .author
           by
+          - user_name = photo.user.full_name || photo.user.username
           - if photo.user.id
-            %a{ href: "/users/#{photo.user.id}" }&= photo.user.full_name
+            %a{ href: "/users/#{photo.user.id}" }&= user_name
           - else
-            &= photo.user.full_name || photo.user.username
+            &= user_name
         .close
           %a{ href: "#close" } close
+
 - if @photos.respond_to?(:next_page) ? @photos.next_page : (@photos.length >= (@per_page || 20) and not root_path?)
   - href = search_path? ? search_page(@photos.next_page) : request.path + "?max_id=#{@photos.last.id}"
   %li.pagination
@@ -406,15 +422,15 @@ xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
   xml.title @title
   
   if @photos.any?
-    xml.updated @photos.first.taken_at.xmlschema
+    xml.updated Time.at(@photos.first.created_time.to_i).xmlschema
     xml.author { xml.name @photos.first.user.full_name } unless popular
   end
   
   for photo in @photos
     xml.entry do 
-      xml.title photo.caption || 'Photo'
+      xml.title((photo.caption && photo.caption.text) || 'Photo')
       xml.id "tag:#{request.host},#{schema_date}:Instagram::Media/#{photo.id}"
-      xml.published photo.taken_at.xmlschema
+      xml.published Time.at(photo.created_time.to_i).xmlschema
       
       if popular
         xml.link rel: 'alternate', type: 'text/html', href: user_url(photo.user.id)
@@ -425,8 +441,8 @@ xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
       
       xml.content type: 'xhtml' do |content|
         content.div xmlns: "http://www.w3.org/1999/xhtml" do
-          content.img src: photo.image_url(306), width: 306, height: 306, alt: photo.caption
-          content.p "#{photo.likers.size} likes" if popular and not photo.likers.empty?
+          content.img src: photo.images.low_resolution.url, width: 306, height: 306, alt: photo.caption && photo.caption.text
+          content.p "#{photo.likes.count} likes" if popular
         end
       end
     end
