@@ -7,5 +7,7 @@ $LOAD_PATH.unshift ENV['APP_ROOT'] || File.expand_path('..', __FILE__)
 
 Encoding.default_external = 'utf-8'
 
+require 'ruby-debug' if ENV['RACK_ENV'] == 'development'
+
 require 'app'
 run Sinatra::Application
