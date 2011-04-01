@@ -3,6 +3,7 @@ require 'sinatra'
 require 'instagram'
 require 'active_support/core_ext/object/blank'
 require 'active_support/notifications'
+require 'active_support/cache'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/integer/time'
 require 'active_support/core_ext/time/acts_like'
@@ -23,12 +24,6 @@ Compass.configuration do |config|
   config.sass_dir = 'views'
 end
 
-Instagram.configure do |config|
-  for key, value in settings.instagram
-    config.send("#{key}=", value)
-  end
-end
-
 set :haml, format: :html5
 set :scss do
   Compass.sass_engine_options.merge style: settings.production? ? :compressed : :nested,
@@ -42,6 +37,16 @@ set(:search_index) {
 
 set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
+Instagram.configure do |config|
+  for key, value in settings.instagram
+    config.send("#{key}=", value)
+  end
+
+  config.cache = ActiveSupport::Cache::FileStore.new settings.cache_dir,
+    namespace: 'instagram',
+    expires_in: settings.production? ? 3.minutes : 1.hour
+end
+
 configure :development, :production do
   Mingo.connect settings.mongodb.url
   User.collection.create_index(:username, :unique => true)
@@ -52,11 +57,13 @@ configure :development, :production do
     $stderr.puts 'IndexTank search for "%s" (%.3f s)' % [payload[:query], ending - start]
   end
 
+  strip_params = %w[access_token client_id]
+
   ActiveSupport::Notifications.subscribe('request.faraday') do |name, start, ending, _, payload|
     url = payload[:url]
-    if url.query_values.key? 'access_token'
+    if (url.query_values.keys & strip_params).any?
       url = url.dup
-      url.query_values = url.query_values.update('access_token' => 'TOKEN')
+      url.query_values = url.query_values.reject { |k,| strip_params.include? k }
     end
     $stderr.puts '[%s] %s %s (%.3f s)' % [url.host, payload[:method].to_s.upcase, url.request_uri, ending - start]
   end

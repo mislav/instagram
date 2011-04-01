@@ -4,7 +4,6 @@ require 'indextank'
 require 'will_paginate/finders/base'
 require 'hashie/mash'
 require 'net/http'
-require 'active_support/cache'
 
 class User < Mingo
   property :user_id
@@ -80,101 +79,6 @@ module Instagram
     def self.get_url(url)
       Net::HTTP.get(url)
     end
-  end
-  
-  module SuperchargedConnection
-    private
-
-    def connection(raw = false)
-      faraday = super
-      faraday.builder.build do |b|
-        # JSON parser should be after Mashify but because of on_complete callbacks it has to be this way
-        b.use Faraday::Response::ParseJson unless raw or format.to_s.downcase != 'json'
-        b.use Faraday::Response::Mashify unless raw
-        b.use Faraday::Request::OAuth2, client_id, access_token
-        b.use CacheResponse
-        b.use Instrumentation
-        b.use Faraday::Response::RaiseHttp4xx
-        b.use Faraday::Response::RaiseHttp5xx
-        b.adapter(adapter)
-      end
-      faraday
-    end
-
-    class Instrumentation
-      def initialize(app) @app = app end
-
-      def call(env)
-        ActiveSupport::Notifications.instrument('request.faraday', env) do
-          @app.call(env)
-        end
-      end
-    end
-
-    class CacheResponse
-      def self.cache
-        @cache ||= ActiveSupport::Cache::FileStore.new \
-          Sinatra::Application.settings.cache_dir,
-          namespace: 'instagram',
-          expires_in: Sinatra::Application.settings.production? ? 3.minutes : 1.hour
-      end
-      
-      def initialize(app)
-        @app = app
-      end
-
-      def call(env)
-        if env[:method] == :get
-          cache_key = normalize_url(env).request_uri
-
-          if cached_response = self.class.cache.read(cache_key)
-            merge_response(env, cached_response)
-          else
-            response = @app.call(env)
-            self.class.cache.write(cache_key, response)
-            response
-          end
-        else
-          @app.call(env)
-        end
-      end
-
-      def normalize_url(env)
-        url = env[:url]
-        unless url.path.include? '/self/'
-          url = url.dup
-          query = url.query_values
-          query.delete 'access_token'
-          url.query_values = query
-        end
-        url
-      end
-
-      def merge_response(env, cached)
-        response = env[:response]
-        response.status, response.headers, response.body = cached.status, cached.headers, cached.body
-        env.update status: response.status, body: response.body, response_headers: response.headers
-        response
-      end
-    end
-  end
-  
-  module DumpableResponse
-    def marshal_dump
-      [@status, @headers, @body]
-    end
-
-    def marshal_load(data)
-      self.status, self.headers, self.body = data
-    end
-  end
-
-  ::Instagram::API.class_eval do
-    include SuperchargedConnection
-  end
-  
-  ::Faraday::Response.class_eval do
-    include DumpableResponse
   end
 end
 
