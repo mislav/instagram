@@ -16,12 +16,19 @@ module Instagram
     end
   end
   
+  class PreserveRawBody < Faraday::Response::Middleware
+    def on_complete(env)
+      env[:raw_body] = env[:body]
+    end
+  end
+  
   module Connection
     def connection
       @connection ||= begin
         conn = Faraday.new('https://api.instagram.com/v1/') do |b|
           b.use Mashify
           b.use FaradayStack::ResponseJSON, content_type: 'application/json'
+          b.use PreserveRawBody
           b.use FaradayStack::Caching, cache, strip_params: %w[access_token client_id] unless cache.nil?
           b.response :raise_error
           b.use FaradayStack::Instrumentation
@@ -45,12 +52,14 @@ module Instagram
   end
   
   module ApiMethods
-    def get(*args)
-      super.body.data
+    def get(path, params = nil)
+      raw = params && params.delete(:raw)
+      response = super
+      raw ? response.env[:raw_body] : response.body.data
     end
     
-    def user(user_id)
-      get("users/#{user_id}")
+    def user(user_id, *args)
+      get("users/#{user_id}", *args)
     end
   
     def user_recent_media(user_id, *args)

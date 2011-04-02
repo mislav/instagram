@@ -42,9 +42,10 @@ class User < Mingo
   end
   memoize :instagram_info
   
-  def photos(max_id = nil)
+  def photos(max_id = nil, raw = false)
     params = { count: 20 }
     params[:max_id] = max_id.to_s if max_id
+    params[:raw] = raw if raw
     Instagram::user_recent_media(self.user_id, params)
   end
 end
