@@ -12,7 +12,11 @@ module Instagram
   
   class Mashify < Faraday::Response::Middleware
     def on_complete(env)
-      env[:body] = Hashie::Mash.new(env[:body]) if Hash === env[:body] or Array === env[:body]
+      super if Hash === env[:body]
+    end
+    
+    def parse(body)
+      Hashie::Mash.new(body)
     end
   end
   
