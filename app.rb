@@ -154,12 +154,6 @@ helpers do
       last_modified Time.at(photos.first.created_time.to_i)
     end
   end
-  
-  # enables using `15.minutes`
-  def expires(amount, *args)
-    amount = amount.to_i if amount.class == Fixnum
-    super(amount, *args)
-  end
 end
 
 get '/' do
