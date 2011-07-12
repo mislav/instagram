@@ -68,6 +68,22 @@ article {
   max-width: 40em;
 }
 
+#login {
+  display: inline-block;
+  text-decoration: none;
+  @include border-radius(5px);
+  border: 1px solid silver;
+  padding: .5em 1em;
+  background: #ddd;
+  color: black;
+  text-shadow: rgba(white, .5) 1px 1px 1px;
+  font-variant: small-caps;
+  font-size: 1em;
+  font-weight: 600;
+  margin: 1.2em 1.5em;
+  &:hover { background: #eee; color: darkblue }
+}
+
 form.detect {
   padding: .1em 1em;
   background: #f8f8f8;

@@ -57,11 +57,11 @@ configure :development, :production do
     $stderr.puts 'IndexTank search for "%s" (%.3f s)' % [payload[:query], ending - start]
   end
 
-  strip_params = %w[access_token client_id]
+  strip_params = %w[access_token client_id client_secret]
 
   ActiveSupport::Notifications.subscribe('request.faraday') do |name, start, ending, _, payload|
     url = payload[:url]
-    if (url.query_values.keys & strip_params).any?
+    if url.query_values and (url.query_values.keys & strip_params).any?
       url = url.dup
       url.query_values = url.query_values.reject { |k,| strip_params.include? k }
     end
@@ -171,6 +171,25 @@ get '/popular.atom' do
   content_type 'application/atom+xml', charset: 'utf-8'
   expires 1.hour, :public
   builder :feed, layout: false
+end
+
+get '/login' do
+  return_url = request.url.split('?').first
+  begin
+    if params[:code]
+      token_response = Instagram::get_access_token(return_to: return_url, code: params[:code])
+      user = User.from_token token_response.body
+      redirect user_url(user.username)
+    elsif params[:error]
+      status 401
+      haml "%h1 Can't login: #{params[:error_description]}"
+    else
+      redirect Instagram::authorization_url(return_to: return_url).to_s
+    end
+  rescue Faraday::Error::ClientError => error
+    status 500
+    haml "%h1 Instagram error: #{error.response[:body]['error_message']}"
+  end
 end
 
 get '/users/:id.atom' do

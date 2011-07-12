@@ -31,6 +31,18 @@ class User < Mingo
       end
     end
   end
+
+  def self.from_token(token)
+    id = token.user.id
+    (first(user_id: id.to_i) || new(user_id: id.to_i)).tap do |user|
+      if user.username and user.username != token.user.username
+        user['old_username'] = user.username
+      end
+      user.username = token.user.username
+      user['access_token'] = token.access_token
+      user.save
+    end
+  end
   
   def self.find_by_instagram_url(url)
     id = Instagram::Discovery.discover_user_id(url)

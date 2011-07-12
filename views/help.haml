@@ -13,7 +13,12 @@
   %section
     %h2 How do I discover my own Instagram photos?
 
-    %p <strong>If you recently tweeted</strong> a link to your Instagram photo, enter your Twitter username and the app will search for that link and try to lookup your Instagram user.
+    %p To see your photo stream, you need to log in:
+
+    %p
+      %a#login{ href: '/login' } Log in with Instagram
+
+    %p Alternatively, you can enter a Twitter username of a person who <strong>recently tweeted</strong> a link to their Instagram photo:
 
     %form{ action: '/users/discover', method: 'post', class: 'detect' }
       %p
@@ -22,7 +27,7 @@
           %input{ type: 'text', name: 'twitter' }
           %input{ type: 'submit', value: 'Search' }
 
-    %p Alternatively, you can paste <strong>a permalink</strong> to one of your Instagram photos:
+    %p Another option is to paste <strong>a permalink</strong> to one of your Instagram photos:
     
     %form{ action: '/users/discover', method: 'post', class: 'detect' }
       %p

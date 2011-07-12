@@ -19,7 +19,31 @@ module Instagram
       Hashie::Mash.new(body)
     end
   end
-  
+
+  class OAuthRequest < Faraday::Middleware
+    def initialize(app, options)
+      super(app)
+      @config = options[:config]
+    end
+
+    def call(env)
+      unless env[:request][:oauth] == false
+        params = %w[client_id client_secret access_token].each_with_object({}) do |key, hash|
+          value = @config.send(key)
+          hash[key] = value if value.present?
+        end
+        if env[:method] == :get
+          url = env[:url]
+          url.query_values = params.update(url.query_values || {})
+          env[:url] = url
+        else
+          env[:body] = params.update(env[:body] || {})
+        end
+      end
+      @app.call(env)
+    end
+  end
+
   class PreserveRawBody < Faraday::Response::Middleware
     def on_complete(env)
       env[:raw_body] = env[:body]
@@ -30,20 +54,18 @@ module Instagram
     def connection
       @connection ||= begin
         conn = Faraday.new('https://api.instagram.com/v1/') do |b|
+          b.use OAuthRequest, config: self
+          b.request :url_encoded
           b.use Mashify
-          b.use FaradayStack::ResponseJSON, content_type: 'application/json'
-          b.use PreserveRawBody
           b.use FaradayStack::Caching, cache, strip_params: %w[access_token client_id] unless cache.nil?
           b.response :raise_error
+          b.use FaradayStack::ResponseJSON, content_type: 'application/json'
+          b.use PreserveRawBody
           b.use FaradayStack::Instrumentation
           b.adapter Faraday.default_adapter
         end
-      
-        # conn.token_auth access_token unless access_token.nil?
-        conn.params['access_token'] = access_token unless access_token.nil?
-        conn.params['client_id'] = client_id
+
         conn.headers['User-Agent'] = 'instagram.heroku.com ruby client'
-      
         conn
       end
     end
@@ -52,6 +74,18 @@ module Instagram
       connection.get(path) do |request|
         request.params = params if params
       end
+    end
+  end
+
+  module OAuthMethods
+    def authorization_url(options)
+      connection.build_url '/oauth/authorize', client_id: client_id,
+        redirect_uri: options[:return_to], response_type: 'code'
+    end
+
+    def get_access_token(options)
+      connection.post '/oauth/access_token', code: options[:code],
+        grant_type: 'authorization_code', redirect_uri: options[:return_to]
     end
   end
   
@@ -85,5 +119,6 @@ module Instagram
   
   extend Configuration
   extend Connection
+  extend OAuthMethods
   extend ApiMethods
 end
