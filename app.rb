@@ -404,7 +404,7 @@ __END__
           %h2= photo.caption.text
         .author
           by
-          - user_name = photo.user.full_name || photo.user.username
+          - user_name = photo.user.full_name.presence || photo.user.username
           - if photo.user.id
             %a{ href: "/users/#{photo.user.id}" }&= user_name
           - else
