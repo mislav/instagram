@@ -6,7 +6,7 @@ default: &defaults
   indextank:
     api_url: <%= ENV['INDEXTANK_API_URL'] %>
   mongodb:
-    url: <%= ENV['MONGOHQ_URL'] %>
+    url: <%= ENV['MONGODB_URL'] %>
 
 development:
   <<: *defaults
