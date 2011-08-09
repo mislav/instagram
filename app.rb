@@ -160,6 +160,12 @@ helpers do
   end
 end
 
+error do
+  # err = env['sinatra.error']
+  status 500
+  haml "%h1 Error: can't perform this operation\n%p Please, try again later."
+end
+
 get '/' do
   @photos = Instagram::media_popular
   @title = "Instagram popular photos"
