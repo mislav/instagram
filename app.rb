@@ -48,8 +48,12 @@ Instagram.configure do |config|
 end
 
 configure :development, :production do
-  Mingo.connect settings.mongodb.url
-  User.collection.create_index(:username, :unique => true)
+  begin
+    Mingo.connect settings.mongodb.url
+    User.collection.create_index(:username, :unique => true)
+  rescue Mongo::ConnectionFailure
+    warn "MongoDB connection failed: #{$!}"
+  end
 
   ActiveSupport::Cache::Store.instrument = true
 

@@ -30,6 +30,8 @@ class User < Mingo
         user.save
       end
     end
+  rescue NoMethodError
+    new(user_id: id.to_i)
   end
 
   def self.from_token(token)
