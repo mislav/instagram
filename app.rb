@@ -342,6 +342,7 @@ __END__
 - if settings.production?
   :javascript
     var _gaq = _gaq || [];
+    var _gauges = _gauges || [];
     _gaq.push(['_setAccount', 'UA-87067-8']);
     _gaq.push(['_setDetectFlash', false]);
     _gaq.push(['_trackPageview']);
@@ -350,6 +351,12 @@ __END__
       var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
       ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
       var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+
+      var t = document.createElement('script'); t.type = 'text/javascript'; t.async = true;
+      t.id = 'gauges-tracker'; t.src = '//secure.gaug.es/track.js';
+      t.setAttribute('data-site-id', '4e417aeff5a1f5142f000001');
+      s = document.getElementsByTagName('script')[0];
+      s.parentNode.insertBefore(t, s);
     })();
 
 @@ index
