@@ -216,7 +216,7 @@ end
 get '/users/:id.json' do
   user = User[params[:id]]
   callback = params['_callback']
-  raw_json = user.photos(params[:max_id], true)
+  raw_json = user.photos(params[:max_id], :raw_json)
   
   content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
   expires 1.hour, :public

@@ -57,10 +57,10 @@ module Instagram
           b.use OAuthRequest, config: self
           b.request :url_encoded
           b.use Mashify
-          b.use FaradayStack::Caching, cache, strip_params: %w[access_token client_id] unless cache.nil?
           b.response :raise_error
           b.use FaradayStack::ResponseJSON, content_type: 'application/json'
           b.use PreserveRawBody
+          b.use FaradayStack::Caching, cache, strip_params: %w[access_token client_id] unless cache.nil?
           b.use FaradayStack::Instrumentation
           b.adapter Faraday.default_adapter
         end
