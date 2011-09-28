@@ -203,7 +203,7 @@ get '/login' do
 end
 
 get '/users/:id.atom' do
-  @user = User[params[:id]]
+  @user = User.find_by_user_id(params[:id]) or not_found
   @photos = @user.photos params[:max_id]
   @title = "Photos by #{@user.username} on Instagram"
   
@@ -214,7 +214,7 @@ get '/users/:id.atom' do
 end
 
 get '/users/:id.json' do
-  user = User[params[:id]]
+  user = User.find_by_user_id(params[:id]) or not_found
   callback = params['_callback']
   raw_json = user.photos(params[:max_id], :raw_json)
   
@@ -236,13 +236,16 @@ get '/users/:id' do
     redirect user_url(@user.username) unless params[:id] =~ /\D/
     @photos = @user.photos params[:max_id]
     @per_page = 20
-  rescue Net::HTTPServerException => e
-    if 404 == e.response.code.to_i
+  rescue Faraday::Error::ClientError => e
+    message = e.response[:body]['meta']['error_message']
+
+    if "this user does not exist" == message
+      User.delete params[:id]
       status 404
       haml "%h1 No such user\n%p Instagram couldn't resolve this user ID"
     else
       status 500
-      haml "%h1 Error fetching data from Instagram"
+      haml "%h1 Error fetching data from Instagram\n%p The error was: #{message}"
     end
   rescue User::NotFound
     status 404
@@ -295,7 +298,7 @@ post '/users/discover' do
       url, twitter_id = Instagram::Discovery.search_twitter(params[:twitter])
     end
     
-    user = User.find_by_instagram_url(url)
+    user = url && User.find_by_instagram_url(url)
     
     if user
       if twitter_id

@@ -15,15 +15,27 @@ class User < Mingo
   
   class NotFound < RuntimeError; end
   
-  def self.lookup(id)
-    if id =~ /\D/
-      first(username: id) or raise NotFound
-    else
-      self[id]
+  class << self
+    def lookup(id)
+      if id =~ /\D/
+        first(username: id)
+      else
+        find_by_user_id(id)
+      end or raise NotFound
     end
+    alias [] lookup
   end
   
-  def self.[](id)
+  def self.delete(id)
+    selector = id =~ /\D/ ? {username: id} : {user_id: id.to_i}
+    collection.remove(selector)
+  end
+  
+  def self.find_by_user_id(user_id)
+    first(user_id: user_id.to_i)
+  end
+  
+  def self.find_or_create_by_user_id(id)
     (first(user_id: id.to_i) || new(user_id: id.to_i)).tap do |user|
       unless user.username
         user.username = user.instagram_info.username
@@ -48,7 +60,7 @@ class User < Mingo
   
   def self.find_by_instagram_url(url)
     id = Instagram::Discovery.discover_user_id(url)
-    self[id] if id
+    find_or_create_by_user_id(id) if id
   end
   
   def instagram_info
@@ -71,28 +83,42 @@ module Instagram
       $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
     end
   
-    PermalinkRe = %r{http://instagr\.am/p/[/\w-]+}
+    LinkRe = %r{https?://t.co/[\w-]+}
+    PermalinkRe = %r{https?://instagr\.am/p/[\w-]+/?}
     TwitterSearch = Addressable::URI.parse 'http://search.twitter.com/search.json'
-    TwitterTimeline = Addressable::URI.parse 'http://api.twitter.com/1/statuses/user_timeline.json'
+    UserInfo = Addressable::URI.parse 'http://api.twitter.com/1/users/show.json'
   
     def self.search_twitter(username)
-      detect = Proc.new { |tweet| return [$&, tweet['id']] if tweet['text'] =~ PermalinkRe }
-    
       url = TwitterSearch.dup
       url.query_values = { q: "from:#{username} instagr.am" }
       data = JSON.parse get_url(url)
-      data['results'].each(&detect)
-    
-      url = TwitterTimeline.dup
-      url.query_values = { screen_name: username, count: "200", trim_user: '1' }
-      data = JSON.parse get_url(url)
-      data.each(&detect)
-    
+      data['results'].each do |tweet|
+        if tweet['text'] =~ LinkRe and resolve_shortened($&) =~ PermalinkRe
+          link = $&
+          user_id = tweet['user'] ? tweet['user']['id'] : twitter_user(username)['id'] rescue nil
+          return [link, user_id]
+        end
+      end
       return nil
     end
-  
-    def self.get_url(url)
-      Net::HTTP.get(url)
+
+    class << self
+      private
+      
+      def twitter_user(username)
+        user_info = UserInfo.dup
+        user_info.query_values = {screen_name: username, include_entities: 'false'}
+        JSON.parse get_url(user_info)
+      end
+      
+      def resolve_shortened(url)
+        url = Addressable::URI.parse url unless url.respond_to? :host
+        Net::HTTP.get_response(url)['location']
+      end
+      
+      def get_url(url)
+        Net::HTTP.get(url)
+      end
     end
   end
 end
