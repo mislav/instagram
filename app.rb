@@ -1,5 +1,6 @@
 # encoding: utf-8
 require 'sinatra'
+require 'never_forget'
 require 'instagram'
 require 'active_support/core_ext/object/blank'
 require 'active_support/notifications'
@@ -161,7 +162,7 @@ helpers do
 end
 
 error do
-  # err = env['sinatra.error']
+  log_error env['sinatra.error']
   status 500
   haml "%h1 Error: can't perform this operation\n%p Please, try again later."
 end
@@ -197,6 +198,7 @@ get '/login' do
       redirect Instagram::authorization_url(return_to: return_url).to_s
     end
   rescue Faraday::Error::ClientError => error
+    log_error error
     status 500
     haml "%h1 Instagram error: #{error.response[:body]['error_message']}"
   end
@@ -237,6 +239,7 @@ get '/users/:id' do
     @photos = @user.photos params[:max_id]
     @per_page = 20
   rescue Faraday::Error::ClientError => e
+    log_error e
     message = e.response[:body]['meta']['error_message']
 
     if "this user does not exist" == message
@@ -313,6 +316,7 @@ post '/users/discover' do
         "%p <strong>Note:</strong> you <em>must</em> have a profile picture on Instagram."
     end
   rescue
+    log_error
     raise unless settings.production?
     status 500
     haml "%h1 Error\n%p The user ID couldn't be discovered because of an error"
