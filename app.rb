@@ -159,6 +159,15 @@ helpers do
       last_modified Time.at(photos.first.created_time.to_i)
     end
   end
+
+  def log_instagram_error(boom = $!)
+    NeverForget.log(boom, request.env) do |stored|
+      if stored.exception.is_a? Faraday::Error::ClientError
+        params = (stored['session'] ||= {})
+        params.update('response_body' => stored.exception.response[:body])
+      end
+    end
+  end
 end
 
 error do
@@ -198,21 +207,27 @@ get '/login' do
       redirect Instagram::authorization_url(return_to: return_url).to_s
     end
   rescue Faraday::Error::ClientError => error
-    log_error error
+    log_instagram_error
     status 500
     haml "%h1 Instagram error: #{error.response[:body]['error_message']}"
   end
 end
 
 get '/users/:id.atom' do
-  @user = User.find_by_user_id(params[:id]) or not_found
-  @photos = @user.photos params[:max_id]
-  @title = "Photos by #{@user.username} on Instagram"
-  
-  content_type 'application/atom+xml', charset: 'utf-8'
-  expires 1.hour, :public
-  last_modified_from_photos(@photos)
-  builder :feed, layout: false
+  begin
+    @user = User.find_by_user_id(params[:id]) or not_found
+    @photos = @user.photos params[:max_id]
+  rescue Faraday::Error::ClientError
+    log_instagram_error
+    status 500
+  else
+    @title = "Photos by #{@user.username} on Instagram"
+
+    content_type 'application/atom+xml', charset: 'utf-8'
+    expires 1.hour, :public
+    last_modified_from_photos(@photos)
+    builder :feed, layout: false
+  end
 end
 
 get '/users/:id.json' do
@@ -239,7 +254,7 @@ get '/users/:id' do
     @photos = @user.photos params[:max_id]
     @per_page = 20
   rescue Faraday::Error::ClientError => e
-    log_error e
+    log_instagram_error
     message = e.response[:body]['meta']['error_message']
 
     if "this user does not exist" == message
