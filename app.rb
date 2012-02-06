@@ -172,9 +172,15 @@ helpers do
 end
 
 error do
-  log_error env['sinatra.error']
+  err = env['sinatra.error']
+  log_error err
   status 500
-  haml "%h1 Error: can't perform this operation\n%p Please, try again later."
+
+  if err.respond_to?(:response) and err.response[:body] and msg = err.response[:body]['error_message']
+    haml "%h1 Error from Instagram\n%p #{msg}"
+  else
+    haml "%h1 Error: can't perform this operation\n%p Please, try again later."
+  end
 end
 
 get '/' do
@@ -256,7 +262,9 @@ get '/users/:id' do
     @per_page = 20
   rescue Faraday::Error::ClientError => e
     log_instagram_error
-    message = e.response[:body]['meta']['error_message']
+    message = if body = e.response[:body]
+      body['meta'] && body['meta']['error_message'] || body['error_message']
+    end
 
     if "this user does not exist" == message
       User.delete params[:id]
