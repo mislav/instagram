@@ -8,6 +8,7 @@ require 'active_support/cache'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/integer/time'
 require 'active_support/core_ext/time/acts_like'
+require 'lib/instagram/failsafe_store'
 require 'addressable/uri'
 require 'digest/md5'
 require 'haml'
@@ -43,9 +44,9 @@ Instagram.configure do |config|
     config.send("#{key}=", value)
   end
 
-  config.cache = ActiveSupport::Cache::FileStore.new settings.cache_dir,
-    namespace: 'instagram',
-    expires_in: settings.production? ? 3.minutes : 1.hour
+  config.cache = Instagram::FailsafeStore.new settings.cache_dir,
+    namespace: 'instagram', expires_in: 20.minutes,
+    exceptions: %w[Faraday::Error::ClientError Timeout::Error JSON::ParserError]
 end
 
 configure :development, :production do

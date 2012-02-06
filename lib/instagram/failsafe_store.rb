@@ -46,7 +46,13 @@ module Instagram
     private
     
     def ignore_exception?(ex)
-      options[:exceptions] && options[:exceptions].any? { |klass| ex.is_a? klass }
+      options[:exceptions] && options[:exceptions].any? { |klass|
+        if klass.respond_to?(:to_str)
+          ex.class.name == klass.to_str
+        else
+          ex.is_a? klass
+        end
+      }
     end
   end
 end
