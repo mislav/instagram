@@ -57,7 +57,7 @@ configure :development, :production do
     warn "MongoDB connection failed: #{$!}"
   end
 
-  ActiveSupport::Cache::Store.instrument = true
+  ActiveSupport::Cache::Store.instrument = settings.development?
 
   ActiveSupport::Notifications.subscribe('search.indextank') do |name, start, ending, _, payload|
     $stderr.puts 'IndexTank search for "%s" (%.3f s)' % [payload[:query], ending - start]
@@ -82,6 +82,8 @@ configure :development, :production do
       $stderr.puts "Cache rebuild: %s (%.3f s)" % [payload[:key], ending - start]
     when 'cache_read'
       $stderr.puts "Cache hit: %s" % payload[:key] if payload[:hit]
+    when 'cache_fetch_hit'
+      $stderr.puts "Cache hit: %s" % payload[:key]
     end
   end
 end

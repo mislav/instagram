@@ -66,6 +66,8 @@ module Instagram
         end
 
         conn.headers['User-Agent'] = 'instagram.heroku.com ruby client'
+        conn.options[:timeout] = 6
+        conn.options[:open_timeout] = 2
         conn
       end
     end
