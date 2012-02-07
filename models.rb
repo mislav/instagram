@@ -1,72 +1,81 @@
 require 'mingo'
-require 'active_support/memoizable'
 require 'indextank'
 require 'will_paginate/collection'
 require 'hashie/mash'
 require 'net/http'
+require 'forwardable'
 
 class User < Mingo
   property :user_id
   property :username
   property :twitter
   property :twitter_id
-  
-  extend ActiveSupport::Memoizable
-  
-  class NotFound < RuntimeError; end
-  
+
+  extend Forwardable
+  def_delegators :'instagram_info.data', :profile_picture, :full_name, :counts
+
   class << self
     def lookup(id)
-      if id =~ /\D/
-        first(username: id)
-      else
-        find_by_user_id(id)
-      end or raise NotFound
+      unless user = find_by_username_or_id(id) or id =~ /\D/
+        # lookup Instagram user by ID
+        user = new(user_id: id.to_i)
+        if 200 == user.instagram_info.status
+          user.username = user.instagram_info.data.username
+          user.save
+        else
+          user = nil
+        end
+      end
+
+      user || (block_given? ? yield : nil)
     end
     alias [] lookup
+
+    private
+
+    def id_selector(id)
+      id =~ /\D/ ? {username: id} : {user_id: id.to_i}
+    end
   end
   
   def self.delete(id)
-    selector = id =~ /\D/ ? {username: id} : {user_id: id.to_i}
-    collection.remove(selector)
+    collection.remove id_selector(id)
+  end
+  
+  def self.find_by_username_or_id(id)
+    first(id_selector(id))
   end
   
   def self.find_by_user_id(user_id)
-    first(user_id: user_id.to_i)
+    find_by_username_or_id(user_id.to_i)
   end
   
   def self.find_or_create_by_user_id(id)
-    (first(user_id: id.to_i) || new(user_id: id.to_i)).tap do |user|
-      unless user.username
-        user.username = user.instagram_info.username
-        user.save
-      end
+    user = find_by_user_id(id) || new(user_id: id.to_i)
+    if block_given?
+      user.save unless yield(user) == false
     end
-  rescue NoMethodError
-    new(user_id: id.to_i)
+    user
   end
 
   def self.from_token(token)
-    id = token.user.id
-    (first(user_id: id.to_i) || new(user_id: id.to_i)).tap do |user|
+    find_or_create_by_user_id(token.user.id) do |user|
       if user.username and user.username != token.user.username
         user['old_username'] = user.username
       end
       user.username = token.user.username
       user['access_token'] = token.access_token
-      user.save
     end
   end
   
   def self.find_by_instagram_url(url)
     id = Instagram::Discovery.discover_user_id(url)
-    find_or_create_by_user_id(id) if id
+    lookup(id) if id
   end
   
   def instagram_info
-    Instagram::user(self.user_id)
+    @instagram_info ||= Instagram::user(self.user_id)
   end
-  memoize :instagram_info
   
   def photos(max_id = nil, raw = false)
     params = { count: 20 }
@@ -79,18 +88,18 @@ end
 module Instagram
   module Discovery
     def self.discover_user_id(url)
-      url = Addressable::URI.parse url unless url.respond_to? :host
+      url = URI.parse url unless url.respond_to? :hostname
       $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
     end
   
     LinkRe = %r{https?://t.co/[\w-]+}
     PermalinkRe = %r{https?://instagr\.am/p/[\w-]+/?}
-    TwitterSearch = Addressable::URI.parse 'http://search.twitter.com/search.json'
-    UserInfo = Addressable::URI.parse 'http://api.twitter.com/1/users/show.json'
+    TwitterSearch = URI.parse 'http://search.twitter.com/search.json'
+    UserInfo = URI.parse 'http://api.twitter.com/1/users/show.json'
   
     def self.search_twitter(username)
       url = TwitterSearch.dup
-      url.query_values = { q: "from:#{username} instagr.am" }
+      url.query = Rack::Utils.build_query q: "from:#{username} instagr.am"
       data = JSON.parse get_url(url)
       data['results'].each do |tweet|
         if tweet['text'] =~ LinkRe and resolve_shortened($&) =~ PermalinkRe
@@ -112,7 +121,7 @@ module Instagram
       end
       
       def resolve_shortened(url)
-        url = Addressable::URI.parse url unless url.respond_to? :host
+        url = URI.parse url unless url.respond_to? :hostname
         Net::HTTP.get_response(url)['location']
       end
       

@@ -57,7 +57,6 @@ module Instagram
           b.use OAuthRequest, config: self
           b.request :url_encoded
           b.use Mashify
-          b.response :raise_error
           b.use FaradayStack::ResponseJSON, content_type: 'application/json'
           b.use PreserveRawBody
           b.use FaradayStack::Caching, cache, strip_params: %w[access_token client_id client_secret] unless cache.nil?
@@ -74,7 +73,7 @@ module Instagram
     
     def get(path, params = nil)
       connection.get(path) do |request|
-        request.params = params if params
+        request.params.update(params) if params
       end
     end
   end
@@ -90,12 +89,26 @@ module Instagram
         grant_type: 'authorization_code', redirect_uri: options[:return_to]
     end
   end
-  
+
+  class Error < RuntimeError
+    attr_reader :response
+    def initialize(response)
+      @response = response
+      super "Instagram responded with status #{response.status}"
+    end
+  end
+
   module ApiMethods
     def get(path, params = nil)
       raw = params && params.delete(:raw)
       response = super
-      raw ? response.env[:raw_body] : response.body.data
+      raise Error.new(response) if response.status >= 500
+      body = raw ? response.env[:raw_body] : response.body
+      body.singleton_class.class_eval <<-RUBY
+        def status() #{response.status} end
+        def error!() raise Instagram::Error.new(self) end
+      RUBY
+      body
     end
     
     def user(user_id, *args)

@@ -46,7 +46,7 @@ Instagram.configure do |config|
 
   config.cache = Instagram::FailsafeStore.new settings.cache_dir,
     namespace: 'instagram', expires_in: 20.minutes,
-    exceptions: %w[Faraday::Error::ClientError Timeout::Error JSON::ParserError]
+    exceptions: %w[Faraday::Error::ClientError Timeout::Error]
 end
 
 configure :development, :production do
@@ -163,13 +163,53 @@ helpers do
     end
   end
 
-  def log_instagram_error(boom = $!)
-    NeverForget.log(boom, request.env) do |stored|
-      if stored.exception.is_a? Faraday::Error::ClientError
-        params = (stored['session'] ||= {})
-        params.update('response_body' => stored.exception.response[:body])
+  def log_error(boom = $!, env = nil)
+    super(boom, env) do |to_store|
+      if to_store.exception.is_a? Instagram::Error
+        params = (to_store['session'] ||= {})
+        params.update('response_body' => to_store.exception.response.body)
+      end
+      yield to_store if block_given?
+    end
+  end
+
+  def check_data(response)
+    if 200 == response.status
+      String === response ? response : response.data
+    else
+      response.error!
+    end
+  end
+
+  def popular_photos
+    check_data Instagram::media_popular
+  end
+
+  def user_photos(user, get_raw = false)
+    check_data user.photos(params[:max_id], get_raw)
+  end
+
+  def lookup_user(id)
+    User.lookup(id) do
+      if id =~ /\D/
+        not_found(
+          haml "%h1 Unrecognized username\n%p We don't know user “#{params[:id]}”.\n" +
+            "%p If this is your Instagram username, please go through the <a href='/help'>user discovery process</a>"
+        )
+      else
+        not_found(
+          haml "%h1 No such user\n%p Instagram couldn't resolve this user ID"
+        )
       end
     end
+  end
+
+  def tag_search(query)
+    check_data Instagram::tag_search(query)
+  end
+
+  def photos_by_tag(tag)
+    check_data Instagram::tag_recent_media(tag, max_id: params[:max_id], count: 20)
   end
 end
 
@@ -178,7 +218,13 @@ error do
   log_error err
   status 500
 
-  if err.respond_to?(:response) and err.response[:body] and msg = err.response[:body]['error_message']
+
+  if err.respond_to?(:response) and (body = err.response.body).is_a? Hash
+    msg = if body['meta']
+      "%s: %s" % [ body['meta']['error_type'], body['meta']['error_message'] ]
+    else
+      body['error_message'] || "Something is not right."
+    end
     haml "%h1 Error from Instagram\n%p #{msg}"
   else
     haml "%h1 Error: can't perform this operation\n%p Please, try again later."
@@ -186,7 +232,7 @@ error do
 end
 
 get '/' do
-  @photos = Instagram::media_popular
+  @photos = popular_photos
   @title = "Instagram popular photos"
   
   expires 15.minutes, :public
@@ -194,7 +240,7 @@ get '/' do
 end
 
 get '/popular.atom' do
-  @photos = Instagram::media_popular
+  @photos = popular_photos
   @title = "Instagram popular photos"
   
   content_type 'application/atom+xml', charset: 'utf-8'
@@ -215,34 +261,24 @@ get '/login' do
     else
       redirect Instagram::authorization_url(return_to: return_url).to_s
     end
-  rescue Faraday::Error::ClientError => error
-    log_instagram_error
-    status 500
-    haml "%h1 Instagram error: #{error.response[:body]['error_message']}"
   end
 end
 
 get '/users/:id.atom' do
-  begin
-    @user = User.find_by_user_id(params[:id]) or not_found
-    @photos = @user.photos params[:max_id]
-  rescue Faraday::Error::ClientError
-    log_instagram_error
-    status 500
-  else
-    @title = "Photos by #{@user.username} on Instagram"
+  @user = User.find_by_user_id(params[:id]) or not_found
+  @photos = user_photos(@user)
+  @title = "Photos by #{@user.username} on Instagram"
 
-    content_type 'application/atom+xml', charset: 'utf-8'
-    expires 1.hour, :public
-    last_modified_from_photos(@photos)
-    builder :feed, layout: false
-  end
+  content_type 'application/atom+xml', charset: 'utf-8'
+  expires 1.hour, :public
+  last_modified_from_photos(@photos)
+  builder :feed, layout: false
 end
 
 get '/users/:id.json' do
   user = User.find_by_user_id(params[:id]) or not_found
   callback = params['_callback']
-  raw_json = user.photos(params[:max_id], :raw_json)
+  raw_json = user_photos(user, :raw_json)
   
   content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
   expires 1.hour, :public
@@ -256,43 +292,23 @@ get '/users/:id.json' do
 end
 
 get '/users/:id' do
-  begin
-    @user = User.lookup params[:id]
-    # redirect from numeric ID to username
-    redirect user_url(@user.username) unless params[:id] =~ /\D/
-    @photos = @user.photos params[:max_id]
-    @per_page = 20
-  rescue Faraday::Error::ClientError => e
-    log_instagram_error
-    message = if body = e.response[:body]
-      body['meta'] && body['meta']['error_message'] || body['error_message']
-    end
+  @user = lookup_user params[:id]
+  # redirect from numeric ID to username
+  redirect user_url(@user.username) unless params[:id] =~ /\D/
 
-    if "this user does not exist" == message
-      User.delete params[:id]
-      status 404
-      haml "%h1 No such user\n%p Instagram couldn't resolve this user ID"
-    else
-      status 500
-      haml "%h1 Error fetching data from Instagram\n%p The error was: #{message}"
-    end
-  rescue User::NotFound
-    status 404
-    haml "%h1 Unrecognized username\n%p We don't know user “#{params[:id]}”.\n" +
-      "%p If this is your Instagram username, please go through the <a href='/help'>user discovery process</a>"
-  else
-    @title = "Photos by #{@user.username} on Instagram"
+  @photos = user_photos(@user)
+  @per_page = 20
+  @title = "Photos by #{@user.username} on Instagram"
 
-    expires 30.minutes, :public
-    last_modified_from_photos(@photos)
-    haml(request.xhr? ? :photos : :index)
-  end
+  expires 30.minutes, :public
+  last_modified_from_photos(@photos)
+  haml(request.xhr? ? :photos : :index)
 end
 
 get '/search' do
   @query = params[:q]
   @title = "“#{@query}” on Instagram"
-  @tags = Instagram::tag_search(@query)
+  @tags = tag_search(@query)
 
   @filter_name = FILTERS[params[:filter].to_i]
   @photos = IndexedPhoto.paginate(@query, :page => params[:page], :filter => @filter_name)
@@ -304,7 +320,7 @@ end
 get '/tags/:tag' do
   @tag = params[:tag]
   @title = "Photos tagged ##{@tag} on Instagram"
-  @photos = Instagram::tag_recent_media(@tag, max_id: params[:max_id], count: 20)
+  @photos = photos_by_tag(@tag)
   @per_page = 20
 
   expires 10.minutes, :public
@@ -396,7 +412,7 @@ __END__
 %header
   %h1
     - if @user
-      %img{ src: @user.instagram_info.profile_picture, class: 'avatar' }
+      %img{ src: @user.profile_picture, class: 'avatar' }
     = instalink @title
     - if root_path?
       %a{ href: "/popular.atom", class: 'feed' }
@@ -413,9 +429,9 @@ __END__
         %input{ type: 'submit', value: 'Search' }
   - elsif @user
     %p.stats
-      &= @user.instagram_info.full_name
+      &= @user.full_name
       &#8226;
-      = @user.instagram_info.counts.followed_by
+      = @user.counts.followed_by
       followers
       &#8226;
       %a{ href: atom_path(@user), class: 'feed' }
