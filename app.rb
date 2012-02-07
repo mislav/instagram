@@ -49,15 +49,37 @@ Instagram.configure do |config|
     exceptions: %w[Faraday::Error::ClientError Timeout::Error]
 end
 
+module Stats
+  extend self
+
+  def collection_name() 'stats' end
+  def collection
+    unless defined? @collection
+      @collection = Mingo.connected? &&
+        Mingo.db.create_collection(collection_name, capped: true, size: 1.megabyte)
+    end
+    @collection
+  end
+
+  def find(selector = {})
+    collection.find(selector, :sort => ['$natural', -1])
+  end
+
+  def record(name)
+    collection.update({hour: Time.now.strftime('%Y-%m-%d:%H')}, {'$inc' => {name => 1}}, upsert: true)
+  end
+end
+
 configure :development, :production do
   begin
     Mingo.connect settings.mongodb.url
     User.collection.create_index(:username, :unique => true)
+    User.collection.create_index(:user_id)
   rescue Mongo::ConnectionFailure
     warn "MongoDB connection failed: #{$!}"
   end
 
-  ActiveSupport::Cache::Store.instrument = settings.development?
+  ActiveSupport::Cache::Store.instrument = true
 
   ActiveSupport::Notifications.subscribe('search.indextank') do |name, start, ending, _, payload|
     $stderr.puts 'IndexTank search for "%s" (%.3f s)' % [payload[:query], ending - start]
@@ -72,6 +94,8 @@ configure :development, :production do
       url.query_values = url.query_values.reject { |k,| strip_params.include? k }
     end
     $stderr.puts '[%s] %s %s (%.3f s)' % [url.host, payload[:method].to_s.upcase, url.request_uri, ending - start]
+
+    Stats::record(:requests)
   end
   
   ActiveSupport::Notifications.subscribe(/^cache_(\w+).active_support$/) do |name, start, ending, _, payload|
@@ -81,9 +105,9 @@ configure :development, :production do
     when 'cache_generate'
       $stderr.puts "Cache rebuild: %s (%.3f s)" % [payload[:key], ending - start]
     when 'cache_read'
-      $stderr.puts "Cache hit: %s" % payload[:key] if payload[:hit]
+      # $stderr.puts "Cache hit: %s" % payload[:key] if payload[:hit]
     when 'cache_fetch_hit'
-      $stderr.puts "Cache hit: %s" % payload[:key]
+      # $stderr.puts "Cache hit: %s" % payload[:key]
     end
   end
 end
@@ -218,6 +242,7 @@ error do
   log_error err
   status 500
 
+  Stats::record(:errors)
 
   if err.respond_to?(:response) and (body = err.response.body).is_a? Hash
     msg = if body['meta']
@@ -368,6 +393,14 @@ end
 get '/screen.css' do
   expires 1.month, :public
   scss :style
+end
+
+get '/_stats' do
+  stats = Stats.find.limit(24)
+  content_type 'text/plain'
+  stats.map { |i|
+    "[%s] requests: %d, errors: %d" % [ i['hour'], i['requests'].to_i, i['errors'].to_i ]
+  }.join("\n")
 end
 
 __END__
