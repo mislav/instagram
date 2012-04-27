@@ -9,7 +9,6 @@ require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/integer/time'
 require 'active_support/core_ext/time/acts_like'
 require 'lib/instagram/failsafe_store'
-require 'addressable/uri'
 require 'digest/md5'
 require 'haml'
 require 'sass'
@@ -146,12 +145,6 @@ helpers do
   
   def search_path?
     request.path.index('/search') == 0
-  end
-  
-  def search_page(page)
-    Addressable::URI.parse(request.path).tap do |url|
-      url.query_values = params.merge('page' => page.to_s)
-    end
   end
   
   def last_modified_from_photos(photos)
