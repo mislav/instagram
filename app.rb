@@ -79,9 +79,10 @@ configure :development, :production do
 
   ActiveSupport::Notifications.subscribe('request.faraday') do |name, start, ending, _, payload|
     url = payload[:url]
-    if url.query_values and (url.query_values.keys & strip_params).any?
+    if url.query
+      query_values = Faraday::Utils.parse_query url.query
       url = url.dup
-      url.query_values = url.query_values.reject { |k,| strip_params.include? k }
+      url.query = Faraday::Utils.build_query query_values.reject { |k,| strip_params.include? k }
     end
     $stderr.puts '[%s] %s %s (%.3f s)' % [url.host, payload[:method].to_s.upcase, url.request_uri, ending - start]
 

@@ -1,4 +1,4 @@
-require 'faraday_stack'
+require 'faraday_middleware'
 require 'hashie/mash'
 
 module Instagram
@@ -7,16 +7,6 @@ module Instagram
   
     def configure
       yield self
-    end
-  end
-  
-  class Mashify < Faraday::Response::Middleware
-    def on_complete(env)
-      super if Hash === env[:body]
-    end
-    
-    def parse(body)
-      Hashie::Mash.new(body)
     end
   end
 
@@ -34,7 +24,8 @@ module Instagram
         end
         if env[:method] == :get
           url = env[:url]
-          url.query_values = params.update(url.query_values || {})
+          query_values = params.update Faraday::Utils.parse_query(url.query.to_s)
+          url.query = Faraday::Utils.build_query query_values
           env[:url] = url
         else
           env[:body] = params.update(env[:body] || {})
@@ -52,25 +43,22 @@ module Instagram
   
   module Connection
     def connection
-      @connection ||= begin
-        conn = Faraday.new('https://api.instagram.com/v1/') do |b|
-          b.use OAuthRequest, config: self
-          b.request :url_encoded
-          b.use Mashify
-          b.use FaradayStack::ResponseJSON, content_type: 'application/json'
-          b.use PreserveRawBody
-          b.use FaradayStack::Caching, cache, strip_params: %w[access_token client_id client_secret] unless cache.nil?
-          b.use FaradayStack::Instrumentation
-          b.adapter Faraday.default_adapter
-        end
+      @connection ||= Faraday.new('https://api.instagram.com/v1/') do |conn|
+        conn.use      OAuthRequest, config: self
+        conn.request  :url_encoded
+        conn.response :mashify
+        conn.response :json, content_type: 'application/json'
+        conn.use      PreserveRawBody
+        conn.response :caching, cache, ignore_params: %w[access_token client_id client_secret] unless cache.nil?
+        conn.use      :instrumentation
+        conn.adapter  Faraday.default_adapter
 
         conn.headers['User-Agent'] = 'instagram.heroku.com ruby client'
         conn.options[:timeout] = 6
         conn.options[:open_timeout] = 2
-        conn
       end
     end
-    
+
     def get(path, params = nil)
       connection.get(path) do |request|
         request.params.update(params) if params
