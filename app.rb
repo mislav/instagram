@@ -32,11 +32,6 @@ set :scss do
     cache_location: File.join(ENV['TMPDIR'], 'sass-cache')
 end
 
-set(:search_index) {
-  search_client = IndexTank::Client.new(settings.indextank.api_url)
-  search_client.indexes('idx')
-}
-
 set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
 Instagram.configure do |config|
@@ -81,10 +76,6 @@ configure :development, :production do
 
   ActiveSupport::Cache::Store.instrument = true
 
-  ActiveSupport::Notifications.subscribe('search.indextank') do |name, start, ending, _, payload|
-    $stderr.puts 'IndexTank search for "%s" (%.3f s)' % [payload[:query], ending - start]
-  end
-
   strip_params = %w[access_token client_id client_secret]
 
   ActiveSupport::Notifications.subscribe('request.faraday') do |name, start, ending, _, payload|
@@ -115,24 +106,6 @@ end
 configure :development do
   set :logging, false
 end
-
-FILTERS = {
-  1 => 'X-Pro II',
-  2 => 'Lomo-fi',
-  3 => 'Earlybird',
-  4 => 'Apollo',
-  5 => 'Poprocket',
-  10 => 'Inkwell',
-  13 => 'Gotham',
-  14 => '1977',
-  15 => 'Nashville',
-  16 => 'Lord Kelvin',
-  17 => 'Lily',
-  18 => 'Sutro',
-  19 => 'Toaster',
-  20 => 'Walden',
-  21 => 'Hefe'
-}
 
 helpers do
   def instalink(text)
@@ -332,14 +305,12 @@ end
 
 get '/search' do
   @query = params[:q]
-  @title = "“#{@query}” on Instagram"
+  @title = "“#{@query}” tags on Instagram"
   @tags = tag_search(@query)
-
-  @filter_name = FILTERS[params[:filter].to_i]
-  @photos = IndexedPhoto.paginate(@query, :page => params[:page], :filter => @filter_name)
+  @photos = []
 
   expires 10.minutes, :public
-  haml(request.xhr? ? :photos : :index)
+  haml :index
 end
 
 get '/tags/:tag' do
@@ -454,11 +425,7 @@ __END__
   - if root_path? or search_path?
     %form{ action: '/search', method: 'get' }
       %p
-        %input{ type: 'search', name: 'q', placeholder: 'search photos', value: @query }
-        %select{ name: 'filter' }
-          %option{ value: '' } any filter
-          - FILTERS.each do |code, name|
-            %option{ value: code, selected: @filter_name == name }&= name
+        %input{ type: 'search', name: 'q', placeholder: 'search tags', value: @query }
         %input{ type: 'submit', value: 'Search' }
   - elsif @user
     %p.stats
@@ -478,18 +445,8 @@ __END__
           %a{ href: "/tags/#{tag.name}" }== ##{tag.name}
           %span== (#{tag.media_count})
 
-  - if search_path?
-    %p.stats
-      == Found <b>#{@photos.total_entries}</b> items
-      - if @filter_name
-        == using the “#{@filter_name}” filter
-
 %ol#photos
   = haml :photos
-
-- if search_path?
-  %p.footnote
-    <strong>Note:</strong> search is limited &mdash; not all photos appear in the results.
 
 %footer
   %p
@@ -531,9 +488,8 @@ __END__
           %a{ href: "#close" } close
 
 - if @photos.respond_to?(:next_page) ? @photos.next_page : (@photos.length >= (@per_page || 20) and not root_path?)
-  - href = search_path? ? search_page(@photos.next_page) : request.path + "?max_id=#{@photos.last.id}"
   %li.pagination
-    %a{ href: href } <span>Load more &rarr;</span>
+    %a{ href: request.path + "?max_id=#{@photos.last.id}" } <span>Load more &rarr;</span>
 
 @@ feed
 schema_date = 2010
