@@ -93,6 +93,7 @@ module Instagram
       raise Error.new(response) if response.status >= 500
       body = raw ? response.env[:raw_body] : response.body
       body.singleton_class.class_eval <<-RUBY
+        def body() self end
         def status() #{response.status} end
         def error!() raise Instagram::Error.new(self) end
       RUBY
