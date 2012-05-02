@@ -1,7 +1,7 @@
 # encoding: utf-8
 require 'sinatra'
 require 'never_forget'
-require 'instagram'
+require_relative 'instagram'
 require 'active_support/core_ext/object/blank'
 require 'active_support/notifications'
 require 'active_support/cache'
@@ -16,7 +16,7 @@ require 'digest/md5'
 require 'haml'
 require 'sass'
 require 'compass'
-require 'models'
+require_relative 'models'
 require 'choices'
 
 Choices.load_settings(File.join(settings.root, 'config.yml'), settings.environment.to_s).each do |key, value|

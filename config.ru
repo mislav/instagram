@@ -2,10 +2,9 @@ require 'rubygems'
 require 'bundler'
 
 Bundler.setup
-$LOAD_PATH.unshift ENV['APP_ROOT'] || File.expand_path('..', __FILE__)
-# $LOAD_PATH.unshift File.join($LOAD_PATH.first, 'lib')
+app_root = ENV['APP_ROOT'] || File.expand_path('..', __FILE__)
 
 Encoding.default_external = 'utf-8'
 
-require 'app'
+require File.join(app_root, 'app')
 run Sinatra::Application
