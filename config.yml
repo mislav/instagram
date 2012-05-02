@@ -8,14 +8,14 @@ default: &defaults
   mongodb:
     url: <%= ENV['MONGODB_URL'] %>
   expires:
-    api_cache:    <%= 20 * 60 %>
-    popular_page: <%= 15 * 60 %>
+    api_cache:    <%= 30 * 60 %>
+    popular_page: <%= 30 * 60 %>
     popular_feed: <%= 60 * 60 %>
-    user_feed:    <%= 60 * 60 %>
-    user_json:    <%= 60 * 60 %>
-    user_page:    <%= 30 * 60 %>
-    search_page:  <%= 10 * 60 %>
-    tag_page:     <%= 10 * 60 %>
+    user_feed:    <%= 2 * 60 * 60 %>
+    user_json:    <%= 2 * 60 * 60 %>
+    user_page:    <%= 60 * 60 %>
+    search_page:  <%= 20 * 60 %>
+    tag_page:     <%= 20 * 60 %>
 
 development:
   <<: *defaults
