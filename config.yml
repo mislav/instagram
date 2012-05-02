@@ -7,6 +7,15 @@ default: &defaults
     api_url: <%= ENV['INDEXTANK_API_URL'] %>
   mongodb:
     url: <%= ENV['MONGODB_URL'] %>
+  expires:
+    api_cache:    <%= 20 * 60 %>
+    popular_page: <%= 15 * 60 %>
+    popular_feed: <%= 60 * 60 %>
+    user_feed:    <%= 60 * 60 %>
+    user_json:    <%= 60 * 60 %>
+    user_page:    <%= 30 * 60 %>
+    search_page:  <%= 10 * 60 %>
+    tag_page:     <%= 10 * 60 %>
 
 development:
   <<: *defaults

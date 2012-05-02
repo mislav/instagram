@@ -39,7 +39,7 @@ Instagram.configure do |config|
   end
 
   config.cache = Instagram::FailsafeStore.new settings.cache_dir,
-    namespace: 'instagram', expires_in: 20.minutes,
+    namespace: 'instagram', expires_in: settings.expires.api_cache,
     exceptions: %w[Faraday::Error::ClientError Timeout::Error]
 end
 
@@ -227,7 +227,7 @@ get '/' do
   @photos = popular_photos
   @title = "Instagram popular photos"
   
-  expires 15.minutes, :public
+  expires settings.expires.popular_page, :public
   haml :index
 end
 
@@ -236,7 +236,7 @@ get '/popular.atom' do
   @title = "Instagram popular photos"
   
   content_type 'application/atom+xml', charset: 'utf-8'
-  expires 1.hour, :public
+  expires settings.expires.popular_feed, :public
   builder :feed, layout: false
 end
 
@@ -262,7 +262,7 @@ get '/users/:id.atom' do
   @title = "Photos by #{@user.username} on Instagram"
 
   content_type 'application/atom+xml', charset: 'utf-8'
-  expires 1.hour, :public
+  expires settings.expires.user_feed, :public
   last_modified_from_photos(@photos)
   builder :feed, layout: false
 end
@@ -273,7 +273,7 @@ get '/users/:id.json' do
   raw_json = user_photos(user, :raw_json)
   
   content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
-  expires 1.hour, :public
+  expires settings.expires.user_json, :public
   etag Digest::MD5.hexdigest(raw_json)
   
   if callback
@@ -292,7 +292,7 @@ get '/users/:id' do
   @per_page = 20
   @title = "Photos by #{@user.username} on Instagram"
 
-  expires 30.minutes, :public
+  expires settings.expires.user_page, :public
   last_modified_from_photos(@photos)
   haml(request.xhr? ? :photos : :index)
 end
@@ -303,7 +303,7 @@ get '/search' do
   @tags = tag_search(@query)
   @photos = []
 
-  expires 10.minutes, :public
+  expires settings.expires.search_page, :public
   haml :index
 end
 
@@ -313,7 +313,7 @@ get '/tags/:tag' do
   @photos = photos_by_tag(@tag)
   @per_page = 20
 
-  expires 10.minutes, :public
+  expires settings.expires.tag_page, :public
   haml(request.xhr? ? :photos : :index)
 end
 
