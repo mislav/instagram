@@ -8,7 +8,10 @@ require 'active_support/cache'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/integer/time'
 require 'active_support/core_ext/time/acts_like'
-require 'lib/instagram/failsafe_store'
+# required for dalli:
+require 'active_support/core_ext/string/encoding'
+require 'active_support/cache'
+require 'active_support/cache/dalli_store'
 require 'digest/md5'
 require 'haml'
 require 'sass'
@@ -38,9 +41,13 @@ Instagram.configure do |config|
     config.send("#{key}=", value)
   end
 
-  config.cache = Instagram::FailsafeStore.new settings.cache_dir,
-    namespace: 'instagram', expires_in: settings.expires.api_cache,
-    exceptions: %w[Faraday::Error::ClientError Timeout::Error]
+  cache_options = { namespace: 'instagram', expires_in: settings.expires.api_cache }
+
+  if settings.production?
+    config.cache = ActiveSupport::Cache::DalliStore.new cache_options.merge(compress: true)
+  else
+    config.cache = ActiveSupport::Cache::FileStore.new settings.cache_dir, cache_options
+  end
 end
 
 module Stats

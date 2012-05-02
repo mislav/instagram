@@ -14,6 +14,7 @@ GEM
     compass (0.10.6)
       haml (>= 3.0.4)
     daemons (1.1.2)
+    dalli (2.0.3)
     erubis (2.7.0)
     eventmachine (0.12.10)
     faraday (0.8.0)
@@ -58,6 +59,7 @@ DEPENDENCIES
   builder
   choices
   compass
+  dalli
   faraday_middleware
   haml
   i18n
