@@ -18,6 +18,7 @@ require 'sass'
 require 'compass'
 require_relative 'models'
 require 'choices'
+require 'json'
 
 Choices.load_settings(File.join(settings.root, 'config.yml'), settings.environment.to_s).each do |key, value|
   set key.to_sym, value
@@ -208,6 +209,43 @@ helpers do
 
   def photos_by_tag(tag)
     check_data Instagram::tag_recent_media(tag, max_id: params[:max_id], count: 20)
+  end
+end
+
+set :dump_errors, false
+# set :show_exceptions, false
+
+error User::NotAvailable do
+  err = env['sinatra.error']
+  msg = err.message
+
+  if err.user.private_account?
+    msg = "This user has a private account."
+  elsif err.user.account_removed?
+    msg = "This user is no longer active on Instagram."
+  end
+
+  case request.path
+  when /\.json$/
+    callback = params['_callback']
+    content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
+    raw_json = JSON.dump error: msg
+
+    status 400
+    if callback
+      "#{callback}(#{raw_json.strip})"
+    else
+      raw_json
+    end
+  when /\.atom$/
+    content_type 'application/atom+xml', charset: 'utf-8'
+    @photos = []
+    @error_message = msg
+    status 200
+    builder :feed, layout: false
+  else
+    status 400
+    haml "%h1 Error from Instagram\n%p #{msg}"
   end
 end
 
@@ -493,6 +531,15 @@ xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
   xml.link rel: 'self', type: 'application/atom+xml', href: request.url
   
   xml.title @title
+
+  if defined? @error_message
+    xml.entry do
+      xml.title "Error"
+      xml.id "tag:#{request.host},#{schema_date}:Error"
+
+      xml.content @error_message, type: 'text'
+    end
+  end
   
   if @photos.any?
     xml.updated Time.at(@photos.first.created_time.to_i).xmlschema

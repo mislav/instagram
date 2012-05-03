@@ -3,15 +3,28 @@ require 'will_paginate/collection'
 require 'hashie/mash'
 require 'net/http'
 require 'forwardable'
+require 'active_support/core_ext/numeric/time'
+require 'active_support/core_ext/integer/time'
+require 'active_support/core_ext/time/acts_like'
 
 class User < Mingo
   property :user_id
   property :username
   property :twitter
   property :twitter_id
+  property :error_at
+  property :error_type
 
   extend Forwardable
   def_delegators :'instagram_info.data', :profile_picture, :full_name, :counts
+
+  class NotAvailable < RuntimeError
+    attr_reader :user
+    def initialize user
+      super "response for user #{user.user_id} was #{user.error_type}"
+      @user = user
+    end
+  end
 
   class << self
     def lookup(id)
@@ -73,14 +86,48 @@ class User < Mingo
   end
   
   def instagram_info
-    @instagram_info ||= Instagram::user(self.user_id)
+    @instagram_info ||= record_error Instagram::user(self.user_id)
   end
   
   def photos(max_id = nil, raw = false)
+    raise_if_recent_error
     params = { count: 20 }
     params[:max_id] = max_id.to_s if max_id
     params[:raw] = raw if raw
-    Instagram::user_recent_media(self.user_id, params)
+    response = Instagram::user_recent_media(self.user_id, params)
+    record_error response, :raise_immediately
+  end
+
+  def private_account?
+    'APINotAllowedError' == error_type
+  end
+
+  def account_removed?
+    'APINotFoundError' == error_type
+  end
+
+  private
+
+  def not_available!
+    raise NotAvailable, self
+  end
+
+  def raise_if_recent_error
+    not_available! if error_at and error_at > 1.day.ago
+  end
+
+  def record_error(response, do_raise = false)
+    if 400 == response.status and response.is_a? Hash
+      self.error_at = Time.now
+      self.error_type = response['meta']['error_type']
+      self.save if persisted?
+      not_available! if do_raise
+    elsif 200 == response.status
+      self.error_at = nil
+      self.error_type = nil
+      self.save if persisted?
+    end
+    response
   end
 end
 
