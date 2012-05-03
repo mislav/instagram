@@ -256,7 +256,7 @@ error do
 
   Stats::record(:errors)
 
-  if err.respond_to?(:response) and (body = err.response.body).is_a? Hash
+  if err.respond_to?(:response) and (body = err.response && err.response.body).is_a? Hash
     msg = if body['meta']
       "%s: %s" % [ body['meta']['error_type'], body['meta']['error_message'] ]
     else
