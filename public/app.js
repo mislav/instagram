@@ -17,22 +17,7 @@ function preload(src, fn) {
   return true
 }
 
-var readyInterval
-
-function ready(name, fn) {
-  if (window[name]) {
-    fn(window[name])
-    return true
-  }
-  else if (!readyInterval) {
-    readyInterval = setInterval(function() {
-      if (ready(name, fn)) clearInterval(readyInterval)
-    }, 50)
-  }
-  else return false
-}
-
-ready('$', function($) {
+Zepto(function($) {
   var svg = $.browser && $.browser.webkit
 
   if (!svg) {
@@ -50,27 +35,20 @@ ready('$', function($) {
       var val = field.val(), text = field.attr('placeholder')
       if (!val || val === text) field.val(text).addClass('placeholder')
     }
-    
-    $('input[placeholder], textarea[placeholder]')
-      .bind('focusin', function(e) {
+
+    $('input[placeholder], textarea[placeholder]').on({
+      focusin: function(e) {
         var input = $(this)
         if (input.val() === input.attr('placeholder')) input.val('').removeClass('placeholder')
-      })
-      .bind('focusout', function(e) {
+      },
+      focusout: function(e) {
         emulatePlaceholder($(this))
-      })
-      .each(function() {
-        emulatePlaceholder($(this))
-      })
+      }
+    }).each(function(){ emulatePlaceholder($(this)) })
   }
 
-  $('form').live('submit', function() {
-    var select = $(this).find('select[name=filter]')
-    if (select.get(0) && !select.get(0).selectedIndex) select.attr('disabled', 'disabled')
-  })
-
   function viewPhoto(item) {
-    if (typeof item == "string") item = $('#media_' + item)
+    if (typeof item == "string") item = $('*[id^="media_' + item + '"]')
     if (!item.get(0) || item.hasClass('active')) return
     var thumb = item.find('.thumb')
     
@@ -78,7 +56,7 @@ ready('$', function($) {
       thumb.removeClass('loading')
       var container = $('#photos').addClass('lightbox')
       item.addClass('active').find('.full img').attr('src', img.src)
-      pushPhotoState(item.attr('id').split('_')[1])
+      pushPhotoState(item.attr('id').replace(/\w+?_/, ''))
       if ($.os && $.os.iphone) scrollTo(0, container.offset().top - 8);
     }
     
@@ -101,22 +79,20 @@ ready('$', function($) {
       if (location.hash != hash) {
         if (history.pushState) history.pushState({ photo: photoID }, "", hash)
         else location.hash = hash
-        trackPageview(url + hash)
+        trackPageview()
       }
     } else {
       if (history.pushState) {
         history.pushState({ photo: null, closed: true }, "", url)
-        trackPageview(url)
+        trackPageview()
       }
       else location.href = url
     }
   }
 
-  function trackPageview(url) {
-    if (url.indexOf('://') >= 0) url = url.split(/:\/\/[^\/]+/)[1]
-    if (url.indexOf('?') < 0) url = url.replace('#p', '/p')
-    if (window._gaq) _gaq.push(['_trackPageview', url])
-    else if (window.console) console.log('trackPageview: ' + url)
+  function trackPageview() {
+    if (window._gauges) _gauges.push(['track'])
+    else if (window.console) console.log('trackPageview: ' + location.toString())
   }
 
   function hashchange(e) {
@@ -125,36 +101,40 @@ ready('$', function($) {
   }
 
   if (history.pushState) {
-    $(window).bind('popstate', function(e) {
-      trackPageview(location.href)
-      if (e.state && e.state.photo) viewPhoto(e.state.photo)
-      else closePhoto()
-    })
+    setTimeout(function(){
+      $(window).on('popstate', function(e) {
+        trackPageview()
+        if (e.state) {
+          if (e.state.photo) viewPhoto(e.state.photo)
+          else closePhoto()
+        }
+        else hashchange()
+      })
+    }, 1000) // http://code.google.com/p/chromium/issues/detail?id=63040#c11
   } else {
-    $(window).bind('hashchange', hashchange)
+    $(window).on('hashchange', hashchange)
   }
   hashchange()
 
-  $('#photos a.thumb').live('click', function(e) {
-    e.preventDefault()
-    this.blur()
-    viewPhoto($(this).closest('li'))
-  })
-
-  $('#photos a[href="#close"], #photos .full img').live('click', function(e) {
-    e.preventDefault()
-    var url = location.href.split('#')[0]
-    pushPhotoState(null)
-    closePhoto()
-  })
-
-  $('#photos .pagination a').live('click', function(e) {
-    e.preventDefault()
-    $(this).find('span').text('Loading...')
-    var item = $(this).closest('.pagination')
-    $.get($(this).attr('href'), function(body) {
-      item.remove()
-      $('#photos').append(body)
+  $('#photos')
+    .on('click', 'a.thumb', function(e){
+      e.preventDefault()
+      try { this.blur() } catch(e) { }
+      viewPhoto($(this).closest('li'))
     })
-  })
+    .on('click', 'a[href="#close"], .full img', function(e){
+      e.preventDefault()
+      var url = location.href.split('#')[0]
+      pushPhotoState(null)
+      closePhoto()
+    })
+    .on('click', '.pagination a', function(e){
+      e.preventDefault()
+      $(this).find('span').text('Loading...')
+      var item = $(this).closest('.pagination')
+      $.get($(this).attr('href'), function(body) {
+        item.remove()
+        $('#photos').append(body)
+      })
+    })
 })

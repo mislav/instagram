@@ -418,7 +418,7 @@ __END__
 !!!
 %title&= @title
 %meta{ 'http-equiv' => 'content-type', content: 'text/html; charset=utf-8' }
-%meta{ name: 'viewport', content: 'initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' }
+%meta{ name: 'viewport', content: 'initial-scale=1.0, maximum-scale=1.0, user-scalable=no' }
 %link{ rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
 %link{ rel: 'favicon', href: '/favicon.ico' }
 / %meta{ name: 'apple-mobile-web-app-capable', content: 'yes' }
@@ -487,13 +487,9 @@ __END__
     (<a href="/users/mislav" title="Mislav's photos">photos</a>)
 
 :javascript
-  var src, script
-  if (navigator.userAgent.match(/WebKit\b/)) src = '/zepto.min.js'
-  else src = 'https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js'
-  script = document.createElement('script')
-  script.src = src
-  script.async = 'async'
-  document.body.appendChild(script)
+  document.write('<script src=' +
+  ('__proto__' in {} ? '/zepto' : 'https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery') +
+  '.min.js><\/script>')
 
 %script{ src: '/app.js' }
 
