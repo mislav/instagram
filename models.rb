@@ -99,7 +99,13 @@ class User < Mingo
   end
 
   def private_account?
-    'APINotAllowedError' == error_type
+    'APINotAllowedError' == error_type or self[:private]
+  end
+
+  def private!
+    self[:private] = true
+    save
+    self
   end
 
   def account_removed?
