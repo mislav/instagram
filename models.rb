@@ -119,7 +119,7 @@ class User < Mingo
   end
 
   def raise_if_recent_error
-    not_available! if error_at and error_at > 1.day.ago
+    not_available! if private_account? or (error_at and error_at > 1.day.ago)
   end
 
   def record_error(response, do_raise = false)
