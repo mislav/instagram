@@ -546,7 +546,9 @@ xml.feed "xml:lang" => "en-US", xmlns: 'http://www.w3.org/2005/Atom' do
     xml.entry do 
       xml.title((photo.caption && photo.caption.text) || 'Photo')
       xml.id "tag:#{request.host},#{schema_date}:Instagram::Media/#{photo.id}"
-      xml.published Time.at(photo.created_time.to_i).xmlschema
+      published_at = Time.at(photo.created_time.to_i).xmlschema
+      xml.published published_at
+      xml.updated   published_at
       
       if popular
         xml.link rel: 'alternate', type: 'text/html', href: user_url(photo.user.id)
