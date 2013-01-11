@@ -1,50 +1,24 @@
-# Unofficial [Instagram][] Ruby library
+# The original Instagram website and API client
 
-This library acts as a client for the [unofficial Instagram API][wiki]. It was used to create [the missing Instagram web interface][web] before [their main API][official] went public.
+This was the first web app that displayed profiles of Instagram users online. It
+was done by using Instagrams private API. Despite the fact that Instagram now
+displays user profiles on their official site, [this app is still online][web].
 
-With it, you can:
+The process of sniffing out their private API is described in my post:
+[Creating the missing Instagram web interface][story].
 
-* fetch popular photos;
-* get user info;
-* browse photos by a user.
+Nowadays [Instagram has an official API][official] and many 3rd-party web sites
+that do interesting things with people's photos and data.
 
-Caveat: you need to know user IDs; usernames can't be used. However, you can start from the popular feed and drill down from there.
+## The code
 
-## Example usage
-
-    require 'instagram'
-    
-    photos = Instagram::popular
-    photo = photos.first
-    
-    photo.caption     #=> "Extreme dog closeup"
-    photo.likes.size  #=> 54
-    photo.filter_name #=> "X-Pro II"
-    
-    photo.user.username      #=> "johndoe"
-    photo.user.full_name     #=> "John Doe"
-    photo.comments[1].text   #=> "That's so cute"
-    photo.images.last.width  #=> 612
-    
-    # available sizes: 150px / 306px / 612px square
-    photo.image_url(612)
-    # => "http://distillery.s3.amazonaws.com/media/-.jpg" (612×612px image)
-    
-    # fetch extended info for John
-    john_info = Instagram::user_info(photo.user.id)
-    
-    john_info.media_count    #=> 32
-    john_info.follower_count #=> 160
-    
-    
-    # find more photos by John
-    photos_by_john = Instagram::by_user(photo.user.id)
-
-To see which models and properties are available, see [models.rb][models].
+* The app is mostly contained in a single file: [`app.rb`][app]
+* The lightweight Ruby API client it is using: [`instagram.rb`][client]
+* The legacy API client (**not to be used**) is in `lib/`.
 
 
-[instagram]: http://instagr.am/
 [web]: http://instagram.heroku.com
-[wiki]: https://github.com/mislav/instagram/wiki "Instagram API"
-[models]: https://github.com/mislav/instagram/blob/master/lib/instagram/models.rb
 [official]: http://instagram.com/developer/
+[story]: http://mislav.uniqpath.com/2010/12/instagram-web/
+[app]: https://github.com/mislav/instagram/blob/master/app.rb
+[client]: https://github.com/mislav/instagram/blob/master/instagram.rb
