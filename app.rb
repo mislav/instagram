@@ -413,6 +413,10 @@ get '/_stats' do
   }.join("\n")
 end
 
+get '/google2a2c9e15ef02ca5d.html' do
+  "google-site-verification: google2a2c9e15ef02ca5d.html"
+end
+
 __END__
 @@ layout
 !!!
