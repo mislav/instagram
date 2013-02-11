@@ -223,7 +223,7 @@ error User::NotAvailable do
 
   case request.path
   when /\.json$/
-    callback = params['_callback']
+    callback = params['_callback'] || params[:callback]
     content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
     raw_json = JSON.dump error: msg
 
@@ -310,7 +310,7 @@ end
 
 get '/users/:id.json' do
   user = User.find_by_user_id(params[:id]) or not_found
-  callback = params['_callback']
+  callback = params['_callback'] || params[:callback]
   raw_json = user_photos(user, :raw_json)
   
   content_type "application/#{callback ? 'javascript' : 'json'}", charset: 'utf-8'
