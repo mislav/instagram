@@ -140,8 +140,8 @@ end
 module Instagram
   module Discovery
     def self.discover_user_id(url)
-      url = URI.parse url unless url.respond_to? :hostname
-      url.hostname = 'instagram.com' if url.hostname == 'instagr.am'
+      url = URI.parse url unless url.respond_to? :host
+      url.host = 'instagram.com' if url.host == 'instagr.am'
       $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
     end
   
@@ -175,7 +175,7 @@ module Instagram
       end
       
       def resolve_shortened(url)
-        url = URI.parse url unless url.respond_to? :hostname
+        url = URI.parse url unless url.respond_to? :host
         Net::HTTP.get_response(url)['location']
       end
       
