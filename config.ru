@@ -6,5 +6,7 @@ app_root = ENV['APP_ROOT'] || File.expand_path('..', __FILE__)
 
 Encoding.default_external = 'utf-8'
 
+$stdout.sync = true
+
 require File.join(app_root, 'app')
 run Sinatra::Application

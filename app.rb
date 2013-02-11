@@ -111,10 +111,6 @@ configure :development, :production do
   end
 end
 
-configure :development do
-  set :logging, false
-end
-
 helpers do
   def instalink(text)
     text.sub(/\b(on instagram)\b/i, '<span>\1</span>').
