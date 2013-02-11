@@ -141,11 +141,12 @@ module Instagram
   module Discovery
     def self.discover_user_id(url)
       url = URI.parse url unless url.respond_to? :hostname
+      url.hostname = 'instagram.com' if url.hostname == 'instagr.am'
       $1.to_i if get_url(url) =~ %r{profiles/profile_(\d+)_}
     end
   
     LinkRe = %r{https?://t.co/[\w-]+}
-    PermalinkRe = %r{https?://instagr\.am/p/[\w-]+/?}
+    PermalinkRe = %r{https?://(instagr\.am|instagram\.com)/p/[\w-]+/?}
     TwitterSearch = URI.parse 'http://search.twitter.com/search.json'
     UserInfo = URI.parse 'http://api.twitter.com/1/users/show.json'
   
@@ -154,10 +155,11 @@ module Instagram
       url.query = Rack::Utils.build_query q: "from:#{username} instagr.am"
       data = JSON.parse get_url(url)
       data['results'].each do |tweet|
-        if tweet['text'] =~ LinkRe and resolve_shortened($&) =~ PermalinkRe
-          link = $&
-          user_id = tweet['user'] ? tweet['user']['id'] : twitter_user(username)['id'] rescue nil
-          return [link, user_id]
+        if tweet['text'] =~ LinkRe
+          if (link = resolve_shortened($&)) =~ PermalinkRe
+            user_id = tweet['user'] ? tweet['user']['id'] : twitter_user(username)['id'] rescue nil
+            return [link, user_id]
+          end
         end
       end
       return nil

@@ -388,7 +388,7 @@ post '/users/discover' do
       end
       redirect user_url(user.username)
     else
-      status 500
+      status 404
       haml "%h1 Sorry\n%p The user ID couldn't be discovered on this page.\n" +
         "%p <strong>Note:</strong> you <em>must</em> have a profile picture on Instagram."
     end
