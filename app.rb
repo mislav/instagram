@@ -19,6 +19,8 @@ require 'compass'
 require_relative 'models'
 require 'choices'
 require 'json'
+require 'metriks/middleware'
+require 'metriks/reporter/logger'
 
 Choices.load_settings(File.join(settings.root, 'config.yml'), settings.environment.to_s).each do |key, value|
   set key.to_sym, value
@@ -108,6 +110,11 @@ configure :development, :production do
     when 'cache_fetch_hit'
       # $stderr.puts "Cache hit: %s" % payload[:key]
     end
+  end
+
+  if settings.metriks_interval
+    Metriks::Reporter::Logger.new(logger: Logger.new($stdout), interval: settings.metriks_interval).start
+    use Metriks::Middleware
   end
 end
 
