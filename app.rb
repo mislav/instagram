@@ -112,6 +112,12 @@ configure :development, :production do
 end
 
 helpers do
+  def asset_host
+    host = settings.asset_host
+    host = "//#{host}" if host
+    host
+  end
+
   def instalink(text)
     text.sub(/\b(on instagram)\b/i, '<span>\1</span>').
       sub(/\b(instagram)\b/i, '<a href="http://instagr.am">\1</a>')
@@ -419,11 +425,11 @@ __END__
 %title&= @title
 %meta{ 'http-equiv' => 'content-type', content: 'text/html; charset=utf-8' }
 %meta{ name: 'viewport', content: 'initial-scale=1.0, maximum-scale=1.0, user-scalable=no' }
-%link{ rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
-%link{ rel: 'favicon', href: '/favicon.ico' }
+%link{ rel: 'apple-touch-icon', href: "#{asset_host}/apple-touch-icon.png" }
+%link{ rel: 'favicon', href: "#{asset_host}/favicon.ico" }
 / %meta{ name: 'apple-mobile-web-app-capable', content: 'yes' }
 / %meta{ name: 'apple-mobile-web-app-status-bar-style', content: 'black' }
-%link{ href: "/screen.css", rel: "stylesheet" }
+%link{ href: "#{asset_host}/screen.css", rel: "stylesheet" }
 - if @user
   %link{ href: atom_path(@user), rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
 - elsif root_path?
@@ -488,10 +494,11 @@ __END__
 
 :javascript
   document.write('<script src=' +
-  ('__proto__' in {} ? '/zepto' : 'https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery') +
+  ('__proto__' in {} ? '#{asset_host}/zepto' :
+   'https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery') +
   '.min.js><\/script>')
 
-%script{ src: '/app.js' }
+%script{ src: "#{asset_host}/app.js" }
 
 @@ photos
 - for photo in @photos

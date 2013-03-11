@@ -1,4 +1,5 @@
 default: &defaults
+  asset_host: <%= ENV['ASSET_HOST'] %>
   instagram:
     client_id: <%= ENV['INSTAGRAM_CLIENT_ID'] %>
     client_secret: <%= ENV['INSTAGRAM_SECRET'] %>
