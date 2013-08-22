@@ -39,6 +39,10 @@ end
 
 set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 
+ENV['MEMCACHE_SERVERS']  = ENV['MEMCACHIER_SERVERS']
+ENV['MEMCACHE_USERNAME'] = ENV['MEMCACHIER_USERNAME']
+ENV['MEMCACHE_PASSWORD'] = ENV['MEMCACHIER_PASSWORD']
+
 Instagram.configure do |config|
   for key, value in settings.instagram
     config.send("#{key}=", value)
