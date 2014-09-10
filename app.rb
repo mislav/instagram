@@ -44,15 +44,6 @@ ENV['MEMCACHE_SERVERS']  = ENV['MEMCACHIER_SERVERS']
 ENV['MEMCACHE_USERNAME'] = ENV['MEMCACHIER_USERNAME']
 ENV['MEMCACHE_PASSWORD'] = ENV['MEMCACHIER_PASSWORD']
 
-use Rack::Static, :urls => %w[
-  /app.js
-  /apple-touch-icon
-  /favicon.ico
-  /feed.png
-  /spinner
-  /zepto.min.js
-], :root => 'public'
-
 configure :production do
   require 'rack/cache'
   memcached = "memcached://%s:%s@%s" % [
@@ -500,7 +491,7 @@ __END__
     = instalink @title
     - if root_path?
       %a{ href: "/popular.atom", class: 'feed' }
-        %img{ src: '/feed.png', alt: 'feed', width: 14, height: 14 }
+        %img{ src: "#{asset_host}/feed.png", alt: 'feed', width: 14, height: 14 }
 
   - if root_path? or search_path?
     %form{ action: '/search', method: 'get' }
@@ -516,7 +507,7 @@ __END__
       &#8226;
       %a{ href: atom_path(@user), class: 'feed' }
         %span photo feed
-        %img{ src: '/feed.png', alt: '', width: 14, height: 14 }
+        %img{ src: "#{asset_host}/feed.png", alt: '', width: 14, height: 14 }
 
   - if @tags and @tags.any?
     %ol.tags
