@@ -1,2 +1,6 @@
+.bundle
+.env
+.ruby-version
 config.local.yml
+vendor/
 tmp
