@@ -3,11 +3,7 @@ ruby '2.1.2'
 
 gem 'sinatra'
 
-group :development do
-  gem 'shotgun'
-  gem 'thin'
-end
-
+gem 'thin'
 gem 'haml'
 gem 'compass'
 gem 'activesupport'
