@@ -44,6 +44,27 @@ ENV['MEMCACHE_SERVERS']  = ENV['MEMCACHIER_SERVERS']
 ENV['MEMCACHE_USERNAME'] = ENV['MEMCACHIER_USERNAME']
 ENV['MEMCACHE_PASSWORD'] = ENV['MEMCACHIER_PASSWORD']
 
+use Rack::Static, :urls => %w[
+  /app.js
+  /apple-touch-icon
+  /favicon.ico
+  /feed.png
+  /spinner
+  /zepto.min.js
+], :root => 'public'
+
+configure :production do
+  require 'rack/cache'
+  memcached = "memcached://%s:%s@%s" % [
+    ENV['MEMCACHE_USERNAME'],
+    ENV['MEMCACHE_PASSWORD'],
+    ENV['MEMCACHE_SERVERS']
+  ]
+  use Rack::Cache, allow_reload: true,
+    metastore:    "#{memcached}/meta",
+    entitystore:  "#{memcached}/body?compress=true"
+end
+
 Instagram.configure do |config|
   for key, value in settings.instagram
     config.send("#{key}=", value)

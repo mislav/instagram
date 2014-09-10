@@ -45,6 +45,8 @@ GEM
       mingo (>= 0.2)
       rack
     rack (1.4.5)
+    rack-cache (1.2)
+      rack (>= 0.4)
     rack-protection (1.2.0)
       rack
     raindrops (0.13.0)
@@ -78,6 +80,7 @@ DEPENDENCIES
   mingo
   mongo_ext
   never-forget
+  rack-cache
   rake
   sinatra
   unicorn
