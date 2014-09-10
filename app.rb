@@ -65,6 +65,9 @@ configure :production do
     entitystore:  "#{memcached}/body?compress=true"
 end
 
+require 'rack/deflater'
+use Rack::Deflater
+
 Instagram.configure do |config|
   for key, value in settings.instagram
     config.send("#{key}=", value)
