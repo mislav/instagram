@@ -1,12 +1,9 @@
 source 'https://rubygems.org'
+ruby '2.1.2'
 
 gem 'sinatra'
 
-group :development do
-  gem 'shotgun'
-  gem 'thin'
-end
-
+gem 'unicorn'
 gem 'haml'
 gem 'compass'
 gem 'activesupport'
@@ -23,3 +20,4 @@ gem 'rake'
 gem 'never-forget'
 gem 'dalli'
 gem 'metriks-middleware'
+gem 'rack-cache'

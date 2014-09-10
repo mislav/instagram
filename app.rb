@@ -17,6 +17,7 @@ require 'haml'
 require 'sass'
 require 'compass'
 require_relative 'models'
+require 'yaml'
 require 'choices'
 require 'json'
 require 'metriks/middleware'
@@ -42,6 +43,21 @@ set(:cache_dir) { File.join(ENV['TMPDIR'], 'cache') }
 ENV['MEMCACHE_SERVERS']  = ENV['MEMCACHIER_SERVERS']
 ENV['MEMCACHE_USERNAME'] = ENV['MEMCACHIER_USERNAME']
 ENV['MEMCACHE_PASSWORD'] = ENV['MEMCACHIER_PASSWORD']
+
+configure :production do
+  require 'rack/cache'
+  memcached = "memcached://%s:%s@%s" % [
+    ENV['MEMCACHE_USERNAME'],
+    ENV['MEMCACHE_PASSWORD'],
+    ENV['MEMCACHE_SERVERS']
+  ]
+  use Rack::Cache, allow_reload: true,
+    metastore:    "#{memcached}/meta",
+    entitystore:  "#{memcached}/body?compress=true"
+end
+
+require 'rack/deflater'
+use Rack::Deflater
 
 Instagram.configure do |config|
   for key, value in settings.instagram
@@ -281,6 +297,14 @@ error do
   end
 end
 
+configure :production do
+  before do
+    if request.get? && request.host != 'instagram.mislav.net'
+      redirect "http://instagram.mislav.net#{request.fullpath}", 301
+    end
+  end
+end
+
 get '/' do
   @photos = popular_photos
   @title = "Instagram popular photos"
@@ -467,7 +491,7 @@ __END__
     = instalink @title
     - if root_path?
       %a{ href: "/popular.atom", class: 'feed' }
-        %img{ src: '/feed.png', alt: 'feed', width: 14, height: 14 }
+        %img{ src: "#{asset_host}/feed.png", alt: 'feed', width: 14, height: 14 }
 
   - if root_path? or search_path?
     %form{ action: '/search', method: 'get' }
@@ -483,7 +507,7 @@ __END__
       &#8226;
       %a{ href: atom_path(@user), class: 'feed' }
         %span photo feed
-        %img{ src: '/feed.png', alt: '', width: 14, height: 14 }
+        %img{ src: "#{asset_host}/feed.png", alt: '', width: 14, height: 14 }
 
   - if @tags and @tags.any?
     %ol.tags
