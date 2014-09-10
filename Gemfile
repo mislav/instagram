@@ -3,7 +3,7 @@ ruby '2.1.2'
 
 gem 'sinatra'
 
-gem 'thin'
+gem 'unicorn'
 gem 'haml'
 gem 'compass'
 gem 'activesupport'
