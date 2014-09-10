@@ -281,6 +281,14 @@ error do
   end
 end
 
+configure :production do
+  before do
+    if request.get? && request.host != 'instagram.mislav.net'
+      redirect "http://instagram.mislav.net#{request.fullpath}", 301
+    end
+  end
+end
+
 get '/' do
   @photos = popular_photos
   @title = "Instagram popular photos"
