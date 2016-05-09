@@ -457,20 +457,22 @@ end
 __END__
 @@ layout
 !!!
-%title&= @title
-%meta{ 'http-equiv' => 'content-type', content: 'text/html; charset=utf-8' }
-%meta{ name: 'viewport', content: 'initial-scale=1.0, maximum-scale=1.0, user-scalable=no' }
-%link{ rel: 'apple-touch-icon', href: "#{asset_host}/apple-touch-icon.png" }
-%link{ rel: 'favicon', href: "#{asset_host}/favicon.ico" }
-%meta{ name: 'google-site-verification', content: 'gqiJinVm5QFnRUhYP_yOehaCu5qric5zi6TRi3zYMgo' }
-%meta{ name: 'robots', content: 'noimageindex' }
-%link{ href: "#{asset_host}/screen.css", rel: "stylesheet" }
-- if @user
-  %link{ href: atom_path(@user), rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
-- elsif root_path?
-  %link{ href: "/popular.atom", rel: 'alternate', title: @title, type: 'application/atom+xml' }
+%head
+  %title&= @title
+  %meta{ 'http-equiv' => 'content-type', content: 'text/html; charset=utf-8' }
+  %meta{ name: 'viewport', content: 'initial-scale=1.0, maximum-scale=1.0, user-scalable=no' }
+  %link{ rel: 'apple-touch-icon', href: "#{asset_host}/apple-touch-icon.png" }
+  %link{ rel: 'favicon', href: "#{asset_host}/favicon.ico" }
+  %meta{ name: 'google-site-verification', content: 'gqiJinVm5QFnRUhYP_yOehaCu5qric5zi6TRi3zYMgo' }
+  %meta{ name: 'robots', content: 'noimageindex' }
+  %link{ href: "#{asset_host}/screen.css", rel: "stylesheet" }
+  - if @user
+    %link{ href: atom_path(@user), rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
+  - elsif root_path?
+    %link{ href: "/popular.atom", rel: 'alternate', title: @title, type: 'application/atom+xml' }
 
-= yield
+%body
+  = yield
 
 - if settings.production?
   :javascript
