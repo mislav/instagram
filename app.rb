@@ -462,8 +462,8 @@ __END__
 %meta{ name: 'viewport', content: 'initial-scale=1.0, maximum-scale=1.0, user-scalable=no' }
 %link{ rel: 'apple-touch-icon', href: "#{asset_host}/apple-touch-icon.png" }
 %link{ rel: 'favicon', href: "#{asset_host}/favicon.ico" }
-/ %meta{ name: 'apple-mobile-web-app-capable', content: 'yes' }
-/ %meta{ name: 'apple-mobile-web-app-status-bar-style', content: 'black' }
+%meta{ name: 'google-site-verification', content: 'gqiJinVm5QFnRUhYP_yOehaCu5qric5zi6TRi3zYMgo' }
+%meta{ name: 'robots', content: 'noimageindex' }
 %link{ href: "#{asset_host}/screen.css", rel: "stylesheet" }
 - if @user
   %link{ href: atom_path(@user), rel: 'alternate', title: "#{@user.username}'s photos", type: 'application/atom+xml' }
