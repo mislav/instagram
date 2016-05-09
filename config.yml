@@ -18,6 +18,7 @@ default: &defaults
     user_page:    <%= 60 * 60 %>
     search_page:  <%= 20 * 60 %>
     tag_page:     <%= 20 * 60 %>
+  user_blacklist: "<%= ENV['INSTAGRAM_USER_BLACKLIST'] %>"
 
 development:
   <<: *defaults

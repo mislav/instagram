@@ -136,6 +136,11 @@ configure :development, :production do
     Metriks::Reporter::Logger.new(logger: Logger.new($stdout), interval: settings.metriks_interval).start
     use Metriks::Middleware
   end
+
+  blacklisted_ids = settings.user_blacklist.to_s.split(',').map(&:to_i)
+  if blacklisted_ids.any?
+    User.blacklist = -> (user) { blacklisted_ids.include?(user.user_id) }
+  end
 end
 
 helpers do

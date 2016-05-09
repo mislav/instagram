@@ -27,6 +27,8 @@ class User < Mingo
   end
 
   class << self
+    attr_accessor :blacklist
+
     def lookup(id)
       unless user = find_by_username_or_id(id) or id =~ /\D/
         # lookup Instagram user by ID
@@ -39,6 +41,7 @@ class User < Mingo
         end
       end
 
+      user = nil if blacklist && blacklist.call(user)
       user || (block_given? ? yield : nil)
     end
     alias [] lookup
