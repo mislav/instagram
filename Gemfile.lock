@@ -1,11 +1,11 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    activemodel (3.0.5)
-      activesupport (= 3.0.5)
+    activemodel (3.0.20)
+      activesupport (= 3.0.20)
       builder (~> 2.1.2)
-      i18n (~> 0.4)
-    activesupport (3.0.5)
+      i18n (~> 0.5.0)
+    activesupport (3.0.20)
     atomic (1.0.1)
     avl_tree (1.1.3)
     bson (1.12.5)
@@ -33,8 +33,8 @@ GEM
       hitimes (~> 1.1)
     metriks-middleware (2.0.0)
       metriks (~> 0.9.9)
-    mingo (0.4.4)
-      mongo (>= 1.3)
+    mingo (0.6.0)
+      mongo (>= 1.3, < 2.0)
     mongo (1.12.5)
       bson (= 1.12.5)
     mongo_ext (0.19.3)
@@ -67,7 +67,7 @@ PLATFORMS
 
 DEPENDENCIES
   activemodel
-  activesupport
+  activesupport (~> 3.0.5)
   bson_ext
   builder
   choices
@@ -77,7 +77,7 @@ DEPENDENCIES
   haml
   i18n
   metriks-middleware
-  mingo (~> 0.4.4)
+  mingo (~> 0.4)
   mongo (~> 1.12.0)
   mongo_ext
   never-forget
